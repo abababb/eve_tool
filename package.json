@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "bson-ext": "^1.0.5",
+    "js-yaml": "^3.10.0",
+    "kerberos": "0.0.23",
+    "mongodb": "^2.2.33",
+    "yamljs": "^0.3.0"
+  }
+}
