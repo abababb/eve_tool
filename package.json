@@ -4,6 +4,15 @@
     "js-yaml": "^3.10.0",
     "kerberos": "0.0.23",
     "mongodb": "^2.2.33",
+    "node-fetch": "^1.7.3",
     "yamljs": "^0.3.0"
+  },
+  "devDependencies": {
+    "eslint": "^4.11.0",
+    "eslint-config-standard": "^10.2.1",
+    "eslint-plugin-import": "^2.8.0",
+    "eslint-plugin-node": "^5.2.1",
+    "eslint-plugin-promise": "^3.6.0",
+    "eslint-plugin-standard": "^3.0.1"
   }
 }

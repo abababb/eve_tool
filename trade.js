@@ -1,5 +1,5 @@
 /*
- * 
+ *
  * 1. 获取所有market相关type_id, 属性volume(V)。 foreach type_id
  *
  * 2. 获取所有region_id, foreach region_id
@@ -27,7 +27,7 @@
  *
  *    设定一个计算价格模糊区间, 比如2%。
  *
- *    最低卖出价(Si) =  (在最低卖出价 到 最低卖出价 * (1 + 价格区间) 之间的所有单：(单价 * 订单量)总和) / 总订单量(Svj)
+ *    最低卖出价(Sj) =  (在最低卖出价 到 最低卖出价 * (1 + 价格区间) 之间的所有单：(单价 * 订单量)总和) / 总订单量(Svj)
  *    最高买入价(Bj) =  (在最高买入价 到 最高买入价 * (1 - 价格区间) 之间的所有单：(单价 * 订单量)总和) / 总订单量(Bvj)
  *
  *    将订单数据变为T的集合。
@@ -35,8 +35,8 @@
  *    两个站Ti, Tj之间:
  *    买卖收益系数 k = (1 - 手续费率 - 税率);
  *    单位货仓容积利润 = (Bi - Sj) * k / V
- *    有效市场单量(Mij) = min(Svj, Bvi), 
- *    设置市场单量过滤功能，比如Mij * V > 2000 (最小装货容积) 才关心, 实际一次运送单量 Mij = min(10000(货船最大容积) / V , Mij)
+ *    有效市场单量(Mij) = min(Svj, Bvi),
+ *    实际一次运送单量 Mij = min(10000(货船最大容积) / V , Mij)
  *
  * 6. GET /route/{origin}/{destination}/ 接口用两个solarSystemID获取跳数Jij。
  *
@@ -52,3 +52,185 @@
  * 其他说明：获取订单价格数据接口可以考虑redis缓存。
  *
  */
+
+var staStations = require('./model/staStations.js')
+var fetchMarket = require('./api/listOrdersInRegion.js')
+
+var regionId = '10000043'
+var page = 1
+var priceRange = 0.1 // 价格模糊区间
+var typeId = '34'
+var typeVolumn = 0.01
+var shipCapacity = 5000
+var profitRate = 0.96
+
+var getRegionTypeOrders = function (callback) {
+  staStations.getSecurityMap(function (stationSecurityMap) {
+    fetchMarket.fetchByRegionTypePage(regionId, typeId, page, function (marketData) {
+      var highsecStations = stationSecurityMap.map(function (station) {
+        return station.stationID
+      })
+      var stationSolarSystemInfo = {}
+      stationSecurityMap.forEach(function (station) {
+        stationSolarSystemInfo[station.stationID] = station.solarSystemID
+      })
+      marketData = marketData.filter(function (order) {
+        return highsecStations.indexOf(order.location_id) !== -1
+      }).map(function (order) {
+        order.solar_system = stationSolarSystemInfo[order.location_id]
+        return order
+      })
+      callback(marketData)
+    })
+  })
+}
+
+// 到第4步
+var getStationTypeOrders = function (callback) {
+  getRegionTypeOrders(function (marketData) {
+    let stationOrders = {}
+    marketData.forEach(function (order) {
+      if (!stationOrders.hasOwnProperty(order.location_id)) {
+        stationOrders[order.location_id] = []
+      }
+      stationOrders[order.location_id].push(order)
+    })
+    callback(stationOrders)
+  })
+}
+
+// 到第5步前半
+var getStationTypeOrderPriceVolume = function (callback) {
+  getStationTypeOrders(function (stationOrders) {
+    let stationOrderArray = []
+    for (const stationID in stationOrders) {
+      if (stationOrders.hasOwnProperty(stationID)) {
+        let orders = stationOrders[stationID]
+        let solarSystem = orders.map(function (order) {
+          return order.solar_system
+        }).reduce(function (accumulator, currentValue) {
+          return currentValue
+        })
+        let bOrders = orders.filter(function (order) {
+          return order.is_buy_order === true
+        })
+        let sOrders = orders.filter(function (order) {
+          return order.is_buy_order === false
+        })
+        let bPrices = bOrders.map(function (order) {
+          return order.price
+        })
+        let sPrices = sOrders.map(function (order) {
+          return order.price
+        })
+        // 最高买入
+        let hBuy = 0
+        // 最低卖出
+        let lSell = 0
+        if (bPrices.length) {
+          hBuy = Math.max.apply(null, bPrices)
+        }
+        if (sPrices.length) {
+          lSell = Math.max.apply(null, sPrices)
+        }
+
+        let hBuyPriceOrders = bOrders.filter(function (order) {
+          let highBuyPriceEnd = hBuy * (1 - priceRange)
+          return order.price >= highBuyPriceEnd
+        })
+        let lSellPriceOrders = sOrders.filter(function (order) {
+          let lowSellPriceEnd = lSell * (1 + priceRange)
+          return order.price <= lowSellPriceEnd
+        })
+
+        // 平均最高买入
+        let hBuyAvg = 0
+        // 平均最高买入单量
+        let hBuyVolume = 0
+
+        if (hBuyPriceOrders.length) {
+          let totalHighBuyPrice = 0
+          hBuyPriceOrders.forEach(function (order) {
+            totalHighBuyPrice += order.price * order.volume_remain
+            hBuyVolume += order.volume_remain
+          })
+          if (hBuyVolume > 0) {
+            hBuyAvg = totalHighBuyPrice / hBuyVolume
+          }
+        }
+
+        // 平均最低卖出
+        let lSellAvg = 0
+        // 平均最低卖出单量
+        let lSellVolume = 0
+
+        if (lSellPriceOrders.length) {
+          let totalLowSellPrice = 0
+          lSellPriceOrders.forEach(function (order) {
+            totalLowSellPrice += order.price * order.volume_remain
+            lSellVolume += order.volume_remain
+          })
+          if (lSellVolume > 0) {
+            lSellAvg = totalLowSellPrice / lSellVolume
+          }
+        }
+
+        let priceInfo = {
+          solar_system: solarSystem,
+          highest_buy_avg: hBuyAvg.toFixed(2),
+          lowest_sell_avg: lSellAvg.toFixed(2),
+          highest_buy_volume: hBuyVolume,
+          lowest_sell_volume: lSellVolume,
+          station: stationID
+        }
+        stationOrderArray.push(priceInfo)
+      }
+    }
+    callback(stationOrderArray)
+  })
+}
+
+var calculateRouteProfit = function (fromStation, toStation) {
+  let amount = Math.min(fromStation.lowest_sell_volume, toStation.highest_buy_volume)
+  amount = Math.min((shipCapacity / typeVolumn).toFixed(0), amount)
+  let profit = amount * profitRate * (fromStation.lowest_sell_avg - toStation.highest_buy_avg)
+  return {
+    profit: profit.toFixed(2),
+    amount: amount
+  }
+}
+
+// 到第7步
+var getMostProfitableRoute = function (callback) {
+  getStationTypeOrderPriceVolume(function (stationPrices) {
+    // console.log(stationPrices)
+    let stationPairs = []
+    stationPrices.forEach(function (stationOrder) {
+      let otherStationOrders = stationPrices.slice(0)
+      otherStationOrders.splice(stationPrices.indexOf(stationOrder), 1)
+      otherStationOrders.forEach(function (otherStationOrder) {
+        stationPairs.push({
+          from: stationOrder,
+          to: otherStationOrder
+        })
+      })
+    })
+    stationPairs = stationPairs.map(function (pair) {
+      let profitInfo = calculateRouteProfit(pair.from, pair.to)
+      pair.profit = profitInfo.profit
+      pair.amount = profitInfo.amount
+      return pair
+    }).filter(function (pair) {
+      return pair.profit > 0
+    }).sort(function (pair1, pair2) {
+      return pair1.profit > pair2.profit
+    })
+    if (stationPairs.length) {
+      console.log(stationPairs.pop())
+    }
+  })
+}
+
+getMostProfitableRoute(function (route) {
+  console.log(route)
+})
