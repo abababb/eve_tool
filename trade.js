@@ -54,40 +54,52 @@
  */
 
 var staStations = require('./model/staStations.js')
+var universe = require('./model/universe.js')
 var fetchMarket = require('./api/listOrdersInRegion.js')
+var marketRoute = require('./api/getRoute.js')
 
-var regionId = '10000043'
 var page = 1
 var priceRange = 0.1 // 价格模糊区间
-var typeId = '34'
+var typeId = '42'
 var typeVolumn = 0.01
-var shipCapacity = 5000
+var shipCapacity = 10000
 var profitRate = 0.96
 
-var getRegionTypeOrders = function (callback) {
+var filterHighsecOrders = function (marketData, callback) {
   staStations.getSecurityMap(function (stationSecurityMap) {
-    fetchMarket.fetchByRegionTypePage(regionId, typeId, page, function (marketData) {
-      var highsecStations = stationSecurityMap.map(function (station) {
-        return station.stationID
-      })
-      var stationSolarSystemInfo = {}
-      stationSecurityMap.forEach(function (station) {
-        stationSolarSystemInfo[station.stationID] = station.solarSystemID
-      })
-      marketData = marketData.filter(function (order) {
-        return highsecStations.indexOf(order.location_id) !== -1
-      }).map(function (order) {
-        order.solar_system = stationSolarSystemInfo[order.location_id]
-        return order
-      })
-      callback(marketData)
+    var highsecStations = stationSecurityMap.map(function (station) {
+      return station.stationID
+    })
+    var stationSolarSystemInfo = {}
+    stationSecurityMap.forEach(function (station) {
+      stationSolarSystemInfo[station.stationID] = station.solarSystemID
+    })
+    marketData = marketData.filter(function (order) {
+      return highsecStations.indexOf(order.location_id) !== -1
+    }).map(function (order) {
+      order.solar_system = stationSolarSystemInfo[order.location_id]
+      return order
+    })
+    callback(marketData)
+  })
+}
+
+var getTypeOrders = function (callback) {
+  universe.getAllRegions(function (regions) {
+    Promise.all(regions.map(function (region) {
+      return fetchMarket.fetchByRegionTypePage(region.data.regionID, typeId, page)
+    })).then(function (ordersList) {
+      let marketData = ordersList.reduce(function (acc, cur) {
+        return acc.concat(cur)
+      }, [])
+      filterHighsecOrders(marketData, callback)
     })
   })
 }
 
 // 到第4步
 var getStationTypeOrders = function (callback) {
-  getRegionTypeOrders(function (marketData) {
+  getTypeOrders(function (marketData) {
     let stationOrders = {}
     marketData.forEach(function (order) {
       if (!stationOrders.hasOwnProperty(order.location_id)) {
@@ -193,7 +205,7 @@ var getStationTypeOrderPriceVolume = function (callback) {
 var calculateRouteProfit = function (fromStation, toStation) {
   let amount = Math.min(fromStation.lowest_sell_volume, toStation.highest_buy_volume)
   amount = Math.min((shipCapacity / typeVolumn).toFixed(0), amount)
-  let profit = amount * profitRate * (fromStation.lowest_sell_avg - toStation.highest_buy_avg)
+  let profit = amount * profitRate * (toStation.highest_buy_avg - fromStation.lowest_sell_avg)
   return {
     profit: profit.toFixed(2),
     amount: amount
@@ -223,14 +235,47 @@ var getMostProfitableRoute = function (callback) {
     }).filter(function (pair) {
       return pair.profit > 0
     }).sort(function (pair1, pair2) {
-      return pair1.profit > pair2.profit
+      return pair1.profit - pair2.profit
     })
     if (stationPairs.length) {
-      console.log(stationPairs.pop())
+      stationPairs.pop()
+      callback(stationPairs.pop())
     }
   })
 }
 
 getMostProfitableRoute(function (route) {
-  console.log(route)
+  var promises = []
+  promises.push(
+    new Promise(function (resolve, reject) {
+      universe.getSolarSystemInfo(function (info) {
+        resolve(info)
+      }, route.to.solar_system)
+    })
+  )
+  promises.push(
+    new Promise(function (resolve, reject) {
+      universe.getSolarSystemInfo(function (info) {
+        resolve(info)
+      }, route.from.solar_system)
+    })
+  )
+  Promise.all(promises).then(function (infos) {
+    let fromID = route.from.solar_system
+    route.from.solar_system = {
+      id: fromID
+    }
+    Object.assign(route.from.solar_system, infos.pop())
+    let toID = route.to.solar_system
+    route.to.solar_system = {
+      id: toID
+    }
+    Object.assign(route.to.solar_system, infos.pop())
+
+    marketRoute.getSecureRoute(fromID, toID).then(function (routeDetail) {
+      route.jumps = routeDetail.length
+      route.detail = routeDetail
+      console.log(route)
+    })
+  })
 })
