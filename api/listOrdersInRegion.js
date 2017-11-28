@@ -3,11 +3,12 @@ var Fetch = require('node-fetch')
 var FetchMarket = (function () {
   function FetchMarket () {};
 
-  FetchMarket.fetchByRegionTypePage = function (regionId, typeId, page) {
-    var host = 'https://esi.tech.ccp.is/latest'
-    var marketApi = '/markets/' + regionId + '/orders/?datasource=tranquility&order_type=all&page=' + page + '&type_id=' + typeId
+  FetchMarket.host = 'https://esi.tech.ccp.is/latest'
 
-    var url = host + marketApi
+  FetchMarket.fetchByRegionTypePage = function (regionId, typeId, page) {
+    var api = '/markets/' + regionId + '/orders/?datasource=tranquility&order_type=all&page=' + page + '&type_id=' + typeId
+
+    var url = this.host + api
 
     var requestData = {
       method: 'GET'
@@ -19,9 +20,21 @@ var FetchMarket = (function () {
       })
   }
 
-  FetchMarket.fetchByRegionType = function (regionId, typeId) {
-    // todo: 一次性拿所有页的数据
+  FetchMarket.fetchByRegionPage = function (regionId, page) {
+    var api = '/markets/' + regionId + '/orders/?datasource=tranquility&order_type=all&page=' + page
+
+    var url = this.host + api
+
+    var requestData = {
+      method: 'GET'
+    }
+
+    return Fetch(url, requestData)
+      .then(function (response) {
+        return response.json()
+      })
   }
+
   return FetchMarket
 }())
 
