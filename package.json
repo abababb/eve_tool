@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "bluebird": "^3.5.1",
     "bson-ext": "^1.0.5",
     "js-yaml": "^3.10.0",
     "kerberos": "0.0.23",

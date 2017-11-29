@@ -1,7 +1,7 @@
 /*
  * redis缓存所有市场数据，结构有4种：
  * 1. station:60004822:type:15613 (set)
- * 2. order:4733073958 (hash)
+ * // 2. order:4733073958 (hash) (暂时用不上这种结构的数据)
  * 3. station:60004822:types (set)
  * 4. type:42:stations (set)
  */
@@ -17,18 +17,20 @@ client.flushdb()
 var storeOneOrder = function (order) {
   let type = order.type_id
   let station = order.location_id
-  let oid = order.order_id
+  // let oid = order.order_id
 
   let typeSetKey = 'type:' + type + ':stations'
   client.sadd(typeSetKey, station)
   let stationSetKey = 'station:' + station + ':types'
   client.sadd(stationSetKey, type)
   let stationTypeSetKey = 'station:' + station + ':type:' + type
-  client.sadd(stationTypeSetKey, oid)
+  client.sadd(stationTypeSetKey, JSON.stringify(order))
+  /*
   let orderHashKey = 'order:' + oid
   client.hmset(orderHashKey, Object.keys(order).reduce(function (r, k) {
     return r.concat(k, order[k])
   }, []))
+  */
 }
 
 var storeOneRegionPage = function (page, regionID) {
