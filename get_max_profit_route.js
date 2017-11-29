@@ -49,12 +49,10 @@ var universeModel = require('./model/universe.js')
 var marketRoute = require('./api/getRoute.js')
 var redis = require('redis')
 var bluebird = require('bluebird')
+// var Rx = require('rxjs/Rx')
 
 bluebird.promisifyAll(redis.RedisClient.prototype)
 bluebird.promisifyAll(redis.Multi.prototype)
-
-var client = redis.createClient()
-client.select(3)
 
 var priceRange = 0.1 // 价格模糊区间
 var shipCapacity = 10000
@@ -70,6 +68,8 @@ var calculator = {
   getStations: function (callback) {
     let self = this
     let typeKey = 'type:' + self.type.id + ':stations'
+    let client = redis.createClient()
+    client.select(3)
     // 拿到某类型的所有站
     client.smembersAsync(typeKey).then(function (stations) {
       // 过滤高安站, 并获取星系信息
@@ -214,7 +214,6 @@ var calculator = {
   getMostProfitableRoute: function (callback) {
     let self = this
     this.getStationOrderPriceVolume(function (stationPrices) {
-      // console.log(stationPrices)
       let stationPairs = []
       stationPrices.forEach(function (stationOrder) {
         let otherStationOrders = stationPrices.slice(0)
@@ -237,8 +236,11 @@ var calculator = {
         return pair1.profit - pair2.profit
       })
       if (stationPairs.length) {
-        stationPairs.pop()
-        callback(stationPairs.pop())
+        let stationPair = stationPairs.pop()
+        callback(stationPair)
+      } else {
+        let noPair = 0
+        callback(noPair)
       }
     })
   },
@@ -281,28 +283,57 @@ var calculator = {
         })
       })
     })
+  },
+
+  setType: function (type) {
+    this.type = type
   }
 }
 
-calculator.getRouteDetail(function (route) {
-  console.log(route)
-})
-
-/*
 var getAllTypes = function (callback) {
   let key = 'type:*:stations'
+  let client = redis.createClient()
+  client.select(3)
   client.keysAsync(key).then(function (types) {
     let typeIDList = types.map(function (typeKey) {
       let typeID = typeKey.split(':')[1]
       return typeID
     })
     typeModel.getIDVolumes(function (info) {
+      client.quit()
       callback(info)
     }, typeIDList)
   })
 }
 
+var calculate = function (types, client) {
+  if (types.length) {
+    let type = types.pop()
+    let cal = Object.assign({}, calculator)
+    cal.setType(type)
+    cal.getMostProfitableRoute(function (route) {
+      if (route) {
+        client.sadd('profit', JSON.stringify(route))
+        console.log('type: ' + type.name + ', profit: ' + route.profit)
+      }
+      calculate(types, client)
+    })
+  } else {
+    client.quit()
+  }
+}
+
 getAllTypes(function (types) {
-  console.log(types)
+  let client = redis.createClient()
+  client.select(3)
+
+  /*
+  let condition = function (type) {
+    return (type.id > 1000 && type.id <= 5000)
+  }
+  types = types.filter(function (type) {
+    return condition(type)
+  })
+  */
+  calculate(types, client)
 })
-*/
