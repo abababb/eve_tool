@@ -43,29 +43,28 @@
  *
  */
 
-var staStationModel = require('./model/staStations.js')
-var typeModel = require('./model/typeIDs.js')
-var universeModel = require('./model/universe.js')
-var marketRoute = require('./api/getRoute.js')
+var staStationModel = require('../model/staStations.js')
 var redis = require('redis')
 var bluebird = require('bluebird')
-// var Rx = require('rxjs/Rx')
 
 bluebird.promisifyAll(redis.RedisClient.prototype)
 bluebird.promisifyAll(redis.Multi.prototype)
 
-var priceRange = 0.1 // 价格模糊区间
-var shipCapacity = 10000
-var profitRate = 0.96
+var calculator = (function () {
+  let priceRange = 0.1 // 价格模糊区间
+  let shipCapacity = 15600 // 运输容积
+  let profitRate = 0.96 // 去掉手续费和税的盈利比
+  let buyMinVolumeLimit = 1000 // 买单最小数量限制
 
-var calculator = {
-  type: {
+  function calculator () {}
+
+  calculator.type = {
     id: 42,
     volume: 0.5,
     name: 'abc'
-  },
+  }
 
-  getStations: function (callback) {
+  calculator.getStations = function (callback) {
     let self = this
     let typeKey = 'type:' + self.type.id + ':stations'
     let client = redis.createClient()
@@ -91,9 +90,9 @@ var calculator = {
         })
       })
     })
-  },
+  }
 
-  filterHighsecStations: function (stations, callback) {
+  calculator.filterHighsecStations = function (stations, callback) {
     staStationModel.getSecurityMap(function (stationSecurityMap) {
       let highsecStations = stationSecurityMap.map(function (station) {
         return station.stationID
@@ -112,9 +111,9 @@ var calculator = {
       })
       callback(stationSolarSystems)
     })
-  },
+  }
 
-  getStationOrderPriceVolume: function (callback) {
+  calculator.getStationOrderPriceVolume = function (callback) {
     this.getStations(function (stationOrders) {
       let stationOrderArray = []
       stationOrders.forEach(function (stationOrder) {
@@ -123,7 +122,7 @@ var calculator = {
         let stationID = stationOrder.station_id
 
         let bOrders = orders.filter(function (order) {
-          return order.is_buy_order === true
+          return order.is_buy_order === true && order.min_volume <= buyMinVolumeLimit
         })
         let sOrders = orders.filter(function (order) {
           return order.is_buy_order === false
@@ -199,9 +198,9 @@ var calculator = {
       })
       callback(stationOrderArray)
     })
-  },
+  }
 
-  calculateRouteProfit: function (fromStation, toStation) {
+  calculator.calculateRouteProfit = function (fromStation, toStation) {
     let amount = Math.min(fromStation.lowest_sell_volume, toStation.highest_buy_volume)
     amount = Math.min((shipCapacity / this.type.volume).toFixed(0), amount)
     let profit = amount * profitRate * (toStation.highest_buy_avg - fromStation.lowest_sell_avg)
@@ -209,9 +208,9 @@ var calculator = {
       profit: profit.toFixed(2),
       amount: amount
     }
-  },
+  }
 
-  getMostProfitableRoute: function (callback) {
+  calculator.getMostProfitableRoute = function (callback) {
     let self = this
     this.getStationOrderPriceVolume(function (stationPrices) {
       let stationPairs = []
@@ -237,103 +236,19 @@ var calculator = {
       })
       if (stationPairs.length) {
         let stationPair = stationPairs.pop()
+        stationPair.type = self.type
         callback(stationPair)
       } else {
         let noPair = 0
         callback(noPair)
       }
     })
-  },
+  }
 
-  getRouteDetail: function (callback) {
-    let self = this
-    this.getMostProfitableRoute(function (route) {
-      var promises = []
-      promises.push(
-        new Promise(function (resolve, reject) {
-          universeModel.getSolarSystemInfo(function (info) {
-            resolve(info)
-          }, route.to.solar_system)
-        })
-      )
-      promises.push(
-        new Promise(function (resolve, reject) {
-          universeModel.getSolarSystemInfo(function (info) {
-            resolve(info)
-          }, route.from.solar_system)
-        })
-      )
-      Promise.all(promises).then(function (infos) {
-        let fromID = route.from.solar_system
-        route.from.solar_system = {
-          id: fromID
-        }
-        Object.assign(route.from.solar_system, infos.pop())
-        let toID = route.to.solar_system
-        route.to.solar_system = {
-          id: toID
-        }
-        Object.assign(route.to.solar_system, infos.pop())
-
-        marketRoute.getSecureRoute(fromID, toID).then(function (routeDetail) {
-          route.type = self.type
-          route.jumps = routeDetail.length
-          route.detail = routeDetail
-          callback(route)
-        })
-      })
-    })
-  },
-
-  setType: function (type) {
+  calculator.setType = function (type) {
     this.type = type
   }
-}
+  return calculator
+}())
 
-var getAllTypes = function (callback) {
-  let key = 'type:*:stations'
-  let client = redis.createClient()
-  client.select(3)
-  client.keysAsync(key).then(function (types) {
-    let typeIDList = types.map(function (typeKey) {
-      let typeID = typeKey.split(':')[1]
-      return typeID
-    })
-    typeModel.getIDVolumes(function (info) {
-      client.quit()
-      callback(info)
-    }, typeIDList)
-  })
-}
-
-var calculate = function (types, client) {
-  if (types.length) {
-    let type = types.pop()
-    let cal = Object.assign({}, calculator)
-    cal.setType(type)
-    cal.getMostProfitableRoute(function (route) {
-      if (route) {
-        client.sadd('profit', JSON.stringify(route))
-        console.log('type: ' + type.name + ', profit: ' + route.profit)
-      }
-      calculate(types, client)
-    })
-  } else {
-    client.quit()
-  }
-}
-
-getAllTypes(function (types) {
-  let client = redis.createClient()
-  client.select(3)
-
-  /*
-  let condition = function (type) {
-    return (type.id > 1000 && type.id <= 5000)
-  }
-  types = types.filter(function (type) {
-    return condition(type)
-  })
-  */
-  calculate(types, client)
-})
+module.exports = calculator
