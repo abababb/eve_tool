@@ -5,18 +5,16 @@ var redis = require('redis')
 var bluebird = require('bluebird')
 var calculator = require('./controller/calculator.js')
 var typeModel = require('./model/typeIDs.js')
+var config = require('./config.js')
 
 bluebird.promisifyAll(redis.RedisClient.prototype)
 bluebird.promisifyAll(redis.Multi.prototype)
 
 let client = redis.createClient()
-client.select(3)
+client.select(config.redisDb)
 
-let scamProfitLimit = 100000000 // 假买单利润差界限
-let orderProfitLimit = 50000 // 纳入考虑的利润界限
-
-let toStation = '60008494' // Domain
-let fromStation = '60003760' // Jita
+let toStation = '60010918' // Domain
+let fromStation = '60008494' // Jita
 
 let fromStationKey = 'station:' + fromStation
 let toStationKey = 'station:' + toStation
@@ -52,7 +50,7 @@ client.sinterAsync(fromStationKey + ':types', toStationKey + ':types').then(func
     })
     Promise.all(promises).then(function (typeInfo) {
       let fromTo = typeInfo.filter(function (type) {
-        return type.profit.profit > orderProfitLimit && (type.toStation.highest_buy_avg - type.fromStation.lowest_sell_avg < scamProfitLimit)
+        return type.profit.profit > config.orderProfitLimit && (type.toStation.highest_buy_avg - type.fromStation.lowest_sell_avg < config.scamProfitLimit)
       }).sort(function (type1, type2) {
         return type1.profit.profit - type2.profit.profit
       }).reduce(function (acc, cur) {
@@ -81,7 +79,7 @@ client.sinterAsync(fromStationKey + ':types', toStationKey + ':types').then(func
       fromTo.cost = fromTo.cost.toFixed(2)
 
       let toFrom = typeInfo.filter(function (type) {
-        return type.reverse_profit.profit > orderProfitLimit && (type.fromStation.highest_buy_avg - type.toStation.lowest_sell_avg < scamProfitLimit)
+        return type.reverse_profit.profit > config.orderProfitLimit && (type.fromStation.highest_buy_avg - type.toStation.lowest_sell_avg < config.scamProfitLimit)
       }).sort(function (type1, type2) {
         return type1.reverse_profit.profit - type2.reverse_profit.profit
       }).reduce(function (acc, cur) {
@@ -108,7 +106,7 @@ client.sinterAsync(fromStationKey + ':types', toStationKey + ':types').then(func
       toFrom.profit = toFrom.profit.toFixed(2)
       toFrom.volume = toFrom.volume.toFixed(2)
       toFrom.cost = toFrom.cost.toFixed(2)
-      console.log(fromTo, toFrom)
+      console.log(fromTo.orders)
 
       client.quit()
     })

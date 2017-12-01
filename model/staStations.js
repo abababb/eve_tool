@@ -1,19 +1,21 @@
 var MongoClient = require('mongodb').MongoClient
 var assert = require('assert')
+var config = require('../config.js')
 
 var staStations = (function () {
   function staStations () {}
 
+  staStations.mongoUrl = config.mongoUrl + '/import'
+
   staStations.getSecurityMap = function (callback) {
     // Connection URL
-    var url = 'mongodb://localhost:27017/import'
 
-    MongoClient.connect(url, function (err, db) {
+    MongoClient.connect(this.mongoUrl, function (err, db) {
       assert.equal(null, err)
       var station = db.collection('staStations')
       var query = {
         'security': {
-          '$gte': 0.5
+          '$gte': config.securityLimit
         }
       }
       var fields = {

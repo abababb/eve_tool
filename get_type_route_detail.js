@@ -5,6 +5,7 @@ var universeModel = require('./model/universe.js')
 var marketRoute = require('./api/getRoute.js')
 var redis = require('redis')
 var bluebird = require('bluebird')
+var config = require('./config.js')
 
 bluebird.promisifyAll(redis.RedisClient.prototype)
 bluebird.promisifyAll(redis.Multi.prototype)
@@ -49,15 +50,13 @@ var getRouteDetail = function (route, callback) {
 
 var getAllRouteDetail = function () {
   let client = redis.createClient()
-  client.select(3)
+  client.select(config.redisDb)
 
-  let profitLimit = 20000000 // 仅考虑该利润以上的路线
-  let myMoney = 560000000 // 能用的成本金额
-
-  client.zrangebyscoreAsync('type_profit', profitLimit, '+inf').then(function (routes) {
+  client.zrangebyscoreAsync('type_profit', config.profitLimit, '+inf').then(function (routes) {
     routes = routes.filter(function (route) {
       route = JSON.parse(route)
-      return parseInt(route.amount * route.from.lowest_sell_avg) < myMoney
+      return (parseInt(route.amount * route.from.lowest_sell_avg) < config.myMoney) &&
+        (route.to.highest_buy_avg - route.from.lowest_sell_avg < config.scamProfitLimit)
     })
     console.log(routes.length)
 

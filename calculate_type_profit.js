@@ -5,6 +5,7 @@ var calculator = require('./controller/calculator.js')
 var typeModel = require('./model/typeIDs.js')
 var redis = require('redis')
 var bluebird = require('bluebird')
+var config = require('./config.js')
 
 bluebird.promisifyAll(redis.RedisClient.prototype)
 bluebird.promisifyAll(redis.Multi.prototype)
@@ -12,7 +13,7 @@ bluebird.promisifyAll(redis.Multi.prototype)
 var getAllTypes = function (callback) {
   let key = 'type:*:stations'
   let client = redis.createClient()
-  client.select(3)
+  client.select(config.redisDb)
   client.keysAsync(key).then(function (types) {
     let typeIDList = types.map(function (typeKey) {
       let typeID = typeKey.split(':')[1]
@@ -45,7 +46,7 @@ var calculate = function (types, client) {
 var calculateAll = function () {
   getAllTypes(function (types) {
     let client = redis.createClient()
-    client.select(3)
+    client.select(config.redisDb)
     client.del('type_profit')
 
     /*

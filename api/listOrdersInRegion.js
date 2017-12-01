@@ -1,9 +1,10 @@
 var Fetch = require('node-fetch')
+var config = require('../config.js')
 
 var FetchMarket = (function () {
   function FetchMarket () {};
 
-  FetchMarket.host = 'https://esi.tech.ccp.is/latest'
+  FetchMarket.host = config.apiHost
 
   FetchMarket.fetchByRegionTypePage = function (regionId, typeId, page) {
     var api = '/markets/' + regionId + '/orders/?datasource=tranquility&order_type=all&page=' + page + '&type_id=' + typeId

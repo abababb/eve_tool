@@ -1,13 +1,15 @@
 var Fetch = require('node-fetch')
+var config = require('../config.js')
 
 var Route = (function () {
   function Route () {};
 
+  Route.host = config.apiHost
+
   Route.getSecureRoute = function (origin, destination) {
-    var host = 'https://esi.tech.ccp.is/latest'
     var api = '/route/' + origin + '/' + destination + '/?datasource=tranquility&flag=secure'
 
-    var url = host + api
+    var url = this.host + api
 
     var requestData = {
       method: 'GET'

@@ -1,14 +1,13 @@
 var MongoClient = require('mongodb').MongoClient
 var assert = require('assert')
+var config = require('../config.js')
 
 var typeIDs = (function () {
   function typeIDs () {}
+  typeIDs.mongoUrl = config.mongoUrl + '/import_fsd'
 
   typeIDs.getIDVolumes = function (callback, typeIDList) {
-    // Connection URL
-    var url = 'mongodb://localhost:27017/import_fsd'
-
-    MongoClient.connect(url, function (err, db) {
+    MongoClient.connect(this.mongoUrl, function (err, db) {
       assert.equal(null, err)
       var typeInfo = db.collection('typeIDs')
       var query = {

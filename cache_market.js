@@ -6,12 +6,13 @@
  * 4. type:42:stations (set)
  */
 
+var config = require('./config.js')
 var redis = require('redis')
 var fetchMarket = require('./api/listOrdersInRegion.js')
 var universe = require('./model/universe.js')
 
 var client = redis.createClient()
-client.select(3)
+client.select(config.redisDb)
 client.flushdb()
 
 var storeOneOrder = function (order) {

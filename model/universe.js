@@ -1,13 +1,13 @@
 var MongoClient = require('mongodb').MongoClient
 var assert = require('assert')
+var config = require('../config.js')
 
-// Connection URL
-var url = 'mongodb://localhost:27017/import_fsd'
+var Universe = (function () {
+  function Universe () {}
 
-var universe = (function () {
-  function universe () {}
+  Universe.mongoUrl = config.mongoUrl + '/import_fsd'
 
-  universe.getAllRegions = function (callback) {
+  Universe.getAllRegions = function (callback) {
     this.getCollection(function (collection, db) {
       var query = {
         'type': 'region',
@@ -21,7 +21,7 @@ var universe = (function () {
     })
   }
 
-  universe.getSolarSystemInfo = function (callback, solarSystemID) {
+  Universe.getSolarSystemInfo = function (callback, solarSystemID) {
     this.getCollection(function (collection, db) {
       let query = {
         'type': 'solarsystem',
@@ -52,14 +52,14 @@ var universe = (function () {
     })
   }
 
-  universe.getCollection = function (callback) {
-    MongoClient.connect(url, function (err, db) {
+  Universe.getCollection = function (callback) {
+    MongoClient.connect(this.mongoUrl, function (err, db) {
       assert.equal(null, err)
       var collection = db.collection('universe')
       callback(collection, db)
     })
   }
-  return universe
+  return Universe
 }())
 
-module.exports = universe
+module.exports = Universe

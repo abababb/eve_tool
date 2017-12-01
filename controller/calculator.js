@@ -46,15 +46,16 @@
 var staStationModel = require('../model/staStations.js')
 var redis = require('redis')
 var bluebird = require('bluebird')
+var config = require('../config.js')
 
 bluebird.promisifyAll(redis.RedisClient.prototype)
 bluebird.promisifyAll(redis.Multi.prototype)
 
 var calculator = (function () {
-  let priceRange = 0.1 // 价格模糊区间
-  let shipCapacity = 15600 // 运输容积
-  let profitRate = 0.96 // 去掉手续费和税的盈利比
-  let buyMinVolumeLimit = 1000 // 买单最小数量限制
+  let priceRange = config.priceRange
+  let shipCapacity = config.shipCapacity
+  let profitRate = config.profitRate
+  let buyMinVolumeLimit = config.buyMinVolumeLimit
 
   function calculator () {}
 
