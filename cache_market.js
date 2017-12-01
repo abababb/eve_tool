@@ -39,7 +39,7 @@ var storeOneRegionPage = function (page, regionID) {
       data.forEach(function (order) {
         storeOneOrder(order)
       })
-      // console.log(regionID, page)
+      console.log(regionID, page)
       page++
       storeOneRegionPage(page, regionID)
     } else {
@@ -48,6 +48,10 @@ var storeOneRegionPage = function (page, regionID) {
         client.quit()
       }
     }
+  }).catch(function (error) {
+    console.log(error)
+    console.log('网络错误，重新发起请求')
+    storeOneRegionPage(page, regionID)
   })
 }
 
@@ -56,7 +60,6 @@ var regionCount = 0
 
 universe.getAllRegions(function (regions) {
   regionCount = regions.length
-  // console.log(regionCount)
   regions.map(function (region) {
     storeOneRegionPage(1, region.data.regionID)
   })

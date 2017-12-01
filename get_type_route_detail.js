@@ -76,7 +76,9 @@ var getAllRouteDetail = function () {
       routes.sort(function (route1, route2) {
         return route1.profit - route2.profit
       })
-      console.log(routes.pop())
+      routes.map(function (route) {
+        console.log(route)
+      })
     })
     client.quit()
   })
