@@ -32,7 +32,7 @@ var calculate = function (types, client) {
     cal.setType(type)
     cal.getMostProfitableRoute(function (route) {
       if (route) {
-        client.zadd('profit', parseInt(route.profit), JSON.stringify(route))
+        client.zadd('type_profit', parseInt(route.profit), JSON.stringify(route))
         console.log('type: ' + type.name + ', profit: ' + route.profit)
       }
       calculate(types, client)
@@ -46,7 +46,7 @@ var calculateAll = function () {
   getAllTypes(function (types) {
     let client = redis.createClient()
     client.select(3)
-    client.del('profit')
+    client.del('type_profit')
 
     /*
     let condition = function (type) {

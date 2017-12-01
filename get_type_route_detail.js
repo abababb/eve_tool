@@ -54,7 +54,7 @@ var getAllRouteDetail = function () {
   let profitLimit = 20000000 // 仅考虑该利润以上的路线
   let myMoney = 560000000 // 能用的成本金额
 
-  client.zrangebyscoreAsync('profit', profitLimit, '+inf').then(function (routes) {
+  client.zrangebyscoreAsync('type_profit', profitLimit, '+inf').then(function (routes) {
     routes = routes.filter(function (route) {
       route = JSON.parse(route)
       return parseInt(route.amount * route.from.lowest_sell_avg) < myMoney

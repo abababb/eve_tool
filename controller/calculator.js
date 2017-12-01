@@ -113,87 +113,92 @@ var calculator = (function () {
     })
   }
 
+  calculator.getStationTypeOrdersInfo = function (orders) {
+    let bOrders = orders.filter(function (order) {
+      return order.is_buy_order === true && order.min_volume <= buyMinVolumeLimit
+    })
+    let sOrders = orders.filter(function (order) {
+      return order.is_buy_order === false
+    })
+    let bPrices = bOrders.map(function (order) {
+      return order.price
+    })
+    let sPrices = sOrders.map(function (order) {
+      return order.price
+    })
+    // 最高买入
+    let hBuy = 0
+    // 最低卖出
+    let lSell = 0
+    if (bPrices.length) {
+      hBuy = Math.max.apply(null, bPrices)
+    }
+    if (sPrices.length) {
+      lSell = Math.max.apply(null, sPrices)
+    }
+
+    let hBuyPriceOrders = bOrders.filter(function (order) {
+      let highBuyPriceEnd = hBuy * (1 - priceRange)
+      return order.price >= highBuyPriceEnd
+    })
+    let lSellPriceOrders = sOrders.filter(function (order) {
+      let lowSellPriceEnd = lSell * (1 + priceRange)
+      return order.price <= lowSellPriceEnd
+    })
+
+    // 平均最高买入
+    let hBuyAvg = 0
+    // 平均最高买入单量
+    let hBuyVolume = 0
+
+    if (hBuyPriceOrders.length) {
+      let totalHighBuyPrice = 0
+      hBuyPriceOrders.forEach(function (order) {
+        totalHighBuyPrice += order.price * order.volume_remain
+        hBuyVolume += order.volume_remain
+      })
+      if (hBuyVolume > 0) {
+        hBuyAvg = totalHighBuyPrice / hBuyVolume
+      }
+    }
+
+    // 平均最低卖出
+    let lSellAvg = 0
+    // 平均最低卖出单量
+    let lSellVolume = 0
+
+    if (lSellPriceOrders.length) {
+      let totalLowSellPrice = 0
+      lSellPriceOrders.forEach(function (order) {
+        totalLowSellPrice += order.price * order.volume_remain
+        lSellVolume += order.volume_remain
+      })
+      if (lSellVolume > 0) {
+        lSellAvg = totalLowSellPrice / lSellVolume
+      }
+    }
+
+    return {
+      highest_buy_avg: hBuyAvg.toFixed(2),
+      lowest_sell_avg: lSellAvg.toFixed(2),
+      highest_buy_volume: hBuyVolume,
+      lowest_sell_volume: lSellVolume
+    }
+  }
+
   calculator.getStationOrderPriceVolume = function (callback) {
+    let self = this
     this.getStations(function (stationOrders) {
       let stationOrderArray = []
       stationOrders.forEach(function (stationOrder) {
         let orders = stationOrder.orders
         let solarSystem = stationOrder.solar_system
         let stationID = stationOrder.station_id
-
-        let bOrders = orders.filter(function (order) {
-          return order.is_buy_order === true && order.min_volume <= buyMinVolumeLimit
-        })
-        let sOrders = orders.filter(function (order) {
-          return order.is_buy_order === false
-        })
-        let bPrices = bOrders.map(function (order) {
-          return order.price
-        })
-        let sPrices = sOrders.map(function (order) {
-          return order.price
-        })
-        // 最高买入
-        let hBuy = 0
-        // 最低卖出
-        let lSell = 0
-        if (bPrices.length) {
-          hBuy = Math.max.apply(null, bPrices)
-        }
-        if (sPrices.length) {
-          lSell = Math.max.apply(null, sPrices)
-        }
-
-        let hBuyPriceOrders = bOrders.filter(function (order) {
-          let highBuyPriceEnd = hBuy * (1 - priceRange)
-          return order.price >= highBuyPriceEnd
-        })
-        let lSellPriceOrders = sOrders.filter(function (order) {
-          let lowSellPriceEnd = lSell * (1 + priceRange)
-          return order.price <= lowSellPriceEnd
-        })
-
-        // 平均最高买入
-        let hBuyAvg = 0
-        // 平均最高买入单量
-        let hBuyVolume = 0
-
-        if (hBuyPriceOrders.length) {
-          let totalHighBuyPrice = 0
-          hBuyPriceOrders.forEach(function (order) {
-            totalHighBuyPrice += order.price * order.volume_remain
-            hBuyVolume += order.volume_remain
-          })
-          if (hBuyVolume > 0) {
-            hBuyAvg = totalHighBuyPrice / hBuyVolume
-          }
-        }
-
-        // 平均最低卖出
-        let lSellAvg = 0
-        // 平均最低卖出单量
-        let lSellVolume = 0
-
-        if (lSellPriceOrders.length) {
-          let totalLowSellPrice = 0
-          lSellPriceOrders.forEach(function (order) {
-            totalLowSellPrice += order.price * order.volume_remain
-            lSellVolume += order.volume_remain
-          })
-          if (lSellVolume > 0) {
-            lSellAvg = totalLowSellPrice / lSellVolume
-          }
-        }
-
         let priceInfo = {
           solar_system: solarSystem,
-          highest_buy_avg: hBuyAvg.toFixed(2),
-          lowest_sell_avg: lSellAvg.toFixed(2),
-          highest_buy_volume: hBuyVolume,
-          lowest_sell_volume: lSellVolume,
           station: stationID
         }
-
+        priceInfo = Object.assign(priceInfo, self.getStationTypeOrdersInfo(orders))
         stationOrderArray.push(priceInfo)
       })
       callback(stationOrderArray)
@@ -203,7 +208,10 @@ var calculator = (function () {
   calculator.calculateRouteProfit = function (fromStation, toStation) {
     let amount = Math.min(fromStation.lowest_sell_volume, toStation.highest_buy_volume)
     amount = Math.min((shipCapacity / this.type.volume).toFixed(0), amount)
-    let profit = amount * profitRate * (toStation.highest_buy_avg - fromStation.lowest_sell_avg)
+    let profit = Math.max(amount * profitRate * (toStation.highest_buy_avg - fromStation.lowest_sell_avg), 0)
+    if (profit <= 0) {
+      amount = 0
+    }
     return {
       profit: profit.toFixed(2),
       amount: amount
