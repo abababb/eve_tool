@@ -21,7 +21,7 @@ var Config = (function () {
   Config.priceRange = 0.1
 
   // 运输容积
-  Config.shipCapacity = 16433
+  Config.shipCapacity = 17000
 
   // 去掉手续费和税的盈利比
   Config.profitRate = 0.96

@@ -39,11 +39,10 @@
  *
  * 7. 所有type_id计算出max(P)对应的type_id。即单位跳数体积利润最大商品。Jij即最佳路线。
  *
- * 8. todo: 多次买卖路线规划。
- *
  */
 
 var staStationModel = require('../model/staStations.js')
+var typeModel = require('../model/typeIDs.js')
 var redis = require('redis')
 var bluebird = require('bluebird')
 var config = require('../config.js')
@@ -73,7 +72,7 @@ var calculator = (function () {
     // 拿到某类型的所有站
     client.smembersAsync(typeKey).then(function (stations) {
       // 过滤高安站, 并获取星系信息
-      self.filterHighsecStations(stations, function (stationSolarSystems) {
+      self.filterStationsBySecurity(stations, function (stationSolarSystems) {
         // 获取站内订单
         Promise.all(stationSolarSystems.map(function (stationSolarSystem) {
           let stationID = stationSolarSystem.station_id
@@ -93,7 +92,7 @@ var calculator = (function () {
     })
   }
 
-  calculator.filterHighsecStations = function (stations, callback) {
+  calculator.filterStationsBySecurity = function (stations, callback) {
     staStationModel.getSecurityMap(function (stationSecurityMap) {
       let highsecStations = stationSecurityMap.map(function (station) {
         return station.stationID
@@ -257,6 +256,37 @@ var calculator = (function () {
   calculator.setType = function (type) {
     this.type = type
   }
+
+  calculator.getAllTypes = function (callback) {
+    let key = 'type:*:stations'
+    let client = redis.createClient()
+    client.select(config.redisDb)
+    client.keysAsync(key).then(function (types) {
+      let typeIDList = types.map(function (typeKey) {
+        let typeID = typeKey.split(':')[1]
+        return typeID
+      })
+      typeModel.getIDVolumes(function (info) {
+        client.quit()
+        callback(info)
+      }, typeIDList)
+    })
+  }
+
+  calculator.getAllStations = function (callback) {
+    let key = 'station:*:types'
+    let client = redis.createClient()
+    client.select(config.redisDb)
+    client.keysAsync(key).then(function (stations) {
+      let stationIDList = stations.map(function (stationKey) {
+        let stationID = stationKey.split(':')[1]
+        return stationID
+      })
+      client.quit()
+      callback(stationIDList)
+    })
+  }
+
   return calculator
 }())
 
