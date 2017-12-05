@@ -36,7 +36,7 @@ var Config = (function () {
   Config.profitLimit = 30000000
 
   // 能用的成本金额
-  Config.myMoney = 700000000
+  Config.myMoney = 800000000
 
   // 安等过滤
   Config.securityLimit = 0.5
