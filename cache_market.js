@@ -10,58 +10,63 @@ var config = require('./config.js')
 var redis = require('redis')
 var fetchMarket = require('./api/listOrdersInRegion.js')
 var universe = require('./model/universe.js')
+var bluebird = require('bluebird')
+
+bluebird.promisifyAll(redis.RedisClient.prototype)
+bluebird.promisifyAll(redis.Multi.prototype)
 
 var client = redis.createClient()
 client.select(config.redisDb)
 client.flushdb()
 
-var storeOneOrder = function (order) {
-  let type = order.type_id
-  let station = order.location_id
-  // let oid = order.order_id
-
-  let typeSetKey = 'type:' + type + ':stations'
-  client.sadd(typeSetKey, station)
-  let stationSetKey = 'station:' + station + ':types'
-  client.sadd(stationSetKey, type)
-  let stationTypeSetKey = 'station:' + station + ':type:' + type
-  client.sadd(stationTypeSetKey, JSON.stringify(order))
-  /*
-  let orderHashKey = 'order:' + oid
-  client.hmset(orderHashKey, Object.keys(order).reduce(function (r, k) {
-    return r.concat(k, order[k])
-  }, []))
-  */
-}
-
-var storeOneRegionPage = function (page, regionID) {
+var storeOneRegionPage = function (page, regionID, callback) {
   fetchMarket.fetchByRegionPage(regionID, page).then(function (data) {
     if (data.length) {
-      data.forEach(function (order) {
-        storeOneOrder(order)
+      let promises = []
+      data.map(function (order) {
+        promises.push(
+          new Promise(function (resolve, reject) {
+            let type = order.type_id
+            let station = order.location_id
+
+            let typeSetKey = 'type:' + type + ':stations'
+            client.saddAsync(typeSetKey, station).then(function (res) {
+              let stationSetKey = 'station:' + station + ':types'
+              client.saddAsync(stationSetKey, type).then(function (res) {
+                let stationTypeSetKey = 'station:' + station + ':type:' + type
+                client.saddAsync(stationTypeSetKey, JSON.stringify(order)).then(function (res) {
+                  resolve()
+                })
+              })
+            })
+          })
+        )
       })
-      console.log(regionID, page)
-      page++
-      storeOneRegionPage(page, regionID)
+      Promise.all(promises).then(function (res) {
+        console.log(regionID, page)
+        page++
+        storeOneRegionPage(page, regionID, callback)
+      })
     } else {
-      completeRegions.push(regionID)
-      if (completeRegions.length === regionCount) {
-        client.quit()
-      }
+      callback()
     }
   }).catch(function (error) {
     console.log(error)
     console.log('网络错误，重新发起请求')
-    storeOneRegionPage(page, regionID)
+    storeOneRegionPage(page, regionID, callback)
   })
 }
 
-var completeRegions = []
-var regionCount = 0
-
 universe.getAllRegions(function (regions) {
-  regionCount = regions.length
+  let promises = []
   regions.map(function (region) {
-    storeOneRegionPage(1, region.data.regionID)
+    promises.push(new Promise(function (resolve, reject) {
+      storeOneRegionPage(1, region.data.regionID, function () {
+        resolve()
+      })
+    }))
+  })
+  Promise.all(promises).then(function (res) {
+    client.quit()
   })
 })
