@@ -74,6 +74,11 @@ var getAllRouteDetail = function () {
         return route1.profit - route2.profit
       })
       routes.map(function (route) {
+        route.orders = route.orders.map(order => {
+          order.type_name = order.type.name
+          order.type_volume = order.type.volume
+          return order
+        })
         console.log(route)
       })
     })
