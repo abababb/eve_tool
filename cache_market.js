@@ -8,7 +8,7 @@
 
 var config = require('./config.js')
 var redis = require('redis')
-var fetchMarket = require('./api/listOrdersInRegion.js')
+var fetchMarket = require('./fetch/listOrdersInRegion.js')
 var universe = require('./model/universe.js')
 var bluebird = require('bluebird')
 
