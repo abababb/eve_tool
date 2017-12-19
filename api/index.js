@@ -15,10 +15,17 @@ app.get('/type/routes', (req, res) => {
   })
 })
 
-app.get('/station/routes', (req, res) => {
-  StationRoutes.getAllRouteDetail((routes) => {
-    res.send(routes)
-  })
+app.get('/station/routes/:stationID', (req, res) => {
+  let stationID = req.params.stationID
+  if (stationID === 'all') {
+    StationRoutes.getAllRouteDetail((routes) => {
+      res.send(routes)
+    })
+  } else {
+    StationRoutes.getStationRouteDetail(stationID, (routes) => {
+      res.send(routes)
+    })
+  }
 })
 
 app.listen(8989)

@@ -35,6 +35,9 @@ var Config = (function () {
   // 单商品运输考虑最大利润界限
   Config.profitLimit = 20000000
 
+  // 多商品运输考虑最大利润界限
+  Config.profitLimitMulti = 2000000
+
   // 能用的成本金额
   Config.myMoney = 800000000
 

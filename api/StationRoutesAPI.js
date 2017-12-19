@@ -73,13 +73,48 @@ var StationRoutes = (function () {
       })
       Promise.all(promises).then(function (routes) {
         routes.sort(function (route1, route2) {
-          return route1.profit - route2.profit
+          return route2.profit - route1.profit
         })
         callback(routes)
       })
       client.quit()
     })
   }
+
+  StationRoutes.getStationRouteDetail = function (stationID, callback) {
+    let client = redis.createClient()
+    client.select(config.redisDb)
+
+    client.zrangebyscoreAsync('station_profit', config.profitLimitMulti, '+inf').then(function (routes) {
+      routes = routes.filter(function (route) {
+        stationID = parseInt(stationID)
+        route = JSON.parse(route)
+        return stationID === route.from.station_id &&
+          (route.cost < config.myMoney) &&
+          (route.volume < config.shipCapacity)
+      })
+      let promises = []
+      routes.map(function (route) {
+        route = JSON.parse(route)
+        promises.push(
+          new Promise(function (resolve, reject) {
+            getRouteDetail(route, function (routeDetail) {
+              resolve(routeDetail)
+            })
+          })
+        )
+      })
+      Promise.all(promises).then(function (routes) {
+        routes.sort(function (route1, route2) {
+          return route2.profit - route1.profit
+          // return route1.jumps - route2.jumps
+        })
+        callback(routes)
+      })
+      client.quit()
+    })
+  }
+
   return StationRoutes
 }())
 
