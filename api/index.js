@@ -3,8 +3,11 @@
  */
 var TypeRoutes = require('./TypeRoutesAPI.js')
 var StationRoutes = require('./StationRoutesAPI.js')
+
 var express = require('express')
+var cors = require('cors')
 var app = express()
+app.use(cors())
 
 app.get('/type/routes', (req, res) => {
   TypeRoutes.getAllRouteDetail((routes) => {
