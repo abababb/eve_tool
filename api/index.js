@@ -11,7 +11,7 @@ app.use(cors())
 
 app.get('/type/routes', (req, res) => {
   TypeRoutes.getAllRouteDetail((routes) => {
-    res.send(routes)
+    res.type('html').send(routes)
   })
 })
 
@@ -19,13 +19,19 @@ app.get('/station/routes/:stationID', (req, res) => {
   let stationID = req.params.stationID
   if (stationID === 'all') {
     StationRoutes.getAllRouteDetail((routes) => {
-      res.send(routes)
+      res.type('html').send(routes)
     })
   } else {
     StationRoutes.getStationRouteDetail(stationID, (routes) => {
-      res.send(routes)
+      res.type('html').send(routes)
     })
   }
+})
+
+app.get('/station/multi/routes/:stationID(\\d+)', (req, res) => {
+  let stationID = req.params.stationID
+  StationRoutes.getMultiStationRoute(stationID)
+  res.type('html').send({msg: '见cli'})
 })
 
 app.listen(8989)
