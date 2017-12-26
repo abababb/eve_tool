@@ -44,7 +44,8 @@ var storeOneRegionPage = function (page, regionID, callback) {
       })
       Promise.all(promises).then(function (res) {
         console.log(regionID, page)
-        callback()
+        page++
+        storeOneRegionPage(page, regionID, callback)
       })
     } else {
       callback()
@@ -59,13 +60,11 @@ var storeOneRegionPage = function (page, regionID, callback) {
 universe.getAllRegions(function (regions) {
   let promises = []
   regions.map(function (region) {
-    for (var page = 1; page <= config.cacheMarketPageLimit; page++) {
-      promises.push(new Promise(function (resolve, reject) {
-        storeOneRegionPage(page, region.data.regionID, function () {
-          resolve()
-        })
-      }))
-    };
+    promises.push(new Promise(function (resolve, reject) {
+      storeOneRegionPage(1, region.data.regionID, function () {
+        resolve()
+      })
+    }))
   })
   Promise.all(promises).then(function (res) {
     client.quit()
