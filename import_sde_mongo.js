@@ -101,7 +101,7 @@ var importUniverse = function () {
   universeTypes.forEach(function (universeType) {
     let universeTypePath = universePath + universeType + '/'
     doc.push({
-      _id: universeType,
+      name: universeType,
       parent: 'universe',
       data: null,
       type: 'universe_type'
@@ -113,7 +113,7 @@ var importUniverse = function () {
       var regionDataFile = 'region.staticdata'
       var regionData = yaml.safeLoad(fs.readFileSync(regionPath + regionDataFile, 'utf8'))
       doc.push({
-        _id: region,
+        name: region,
         parent: universeType,
         data: regionData,
         type: 'region'
@@ -125,7 +125,7 @@ var importUniverse = function () {
         var constellationDataFile = 'constellation.staticdata'
         var constellationData = yaml.safeLoad(fs.readFileSync(constellationPath + constellationDataFile, 'utf8'))
         doc.push({
-          _id: constellation,
+          name: constellation,
           parent: region,
           data: constellationData,
           type: 'constellation'
@@ -136,7 +136,7 @@ var importUniverse = function () {
           var solarsystemDataFile = 'solarsystem.staticdata'
           var solarsystemData = yaml.safeLoad(fs.readFileSync(solarsystemPath + solarsystemDataFile, 'utf8'))
           doc.push({
-            _id: solarsystem,
+            name: solarsystem,
             parent: constellation,
             data: solarsystemData,
             type: 'solarsystem'
@@ -155,12 +155,11 @@ var importUniverse = function () {
     db.collection('universe').insertMany(doc
       , function (err, result) {
         assert.equal(err, null)
-        db.collection('universe').createIndex({parent: 1})
         db.close()
       })
   })
 }
 
-importBsd()
-importFsd()
+// importBsd()
+// importFsd()
 importUniverse()

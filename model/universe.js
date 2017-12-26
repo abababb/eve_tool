@@ -28,22 +28,22 @@ var Universe = (function () {
         'data.solarSystemID': solarSystemID
       }
       var fields = {
-        '_id': true,
+        'name': true,
         'parent': true
       }
       collection.findOne(query, fields, function (err, solarSystem) {
         assert.equal(null, err)
 
         let query = {
-          '_id': solarSystem.parent
+          'name': solarSystem.parent
         }
 
         collection.findOne(query, fields, function (err, constellation) {
           assert.equal(null, err)
           let info = {
             region: constellation.parent,
-            constellation: constellation._id,
-            solarSystem: solarSystem._id
+            constellation: constellation.name,
+            solarSystem: solarSystem.name
           }
           callback(info)
           db.close()
