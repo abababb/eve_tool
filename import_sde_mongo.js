@@ -1,97 +1,104 @@
 var yaml = require('js-yaml')
 var fs = require('fs')
-var MongoClient = require('mongodb').MongoClient
 var assert = require('assert')
+var MongoClient = require('mongodb').MongoClient
+var Db = require('mongodb').Db
+var Server = require('mongodb').Server
 
 var basePath = '/tmp/sde/'
 
-var bsdFolder = basePath + 'bsd/'
-var fsdFolder = basePath + 'fsd/'
-
 var importBsd = function () {
-  // Connection URL
-  var url = 'mongodb://localhost:27017/import'
+  let url = 'mongodb://localhost:27017/import'
+  let bsdFolder = basePath + 'bsd/'
 
+  // 读目录下的文件
   fs.readdir(bsdFolder, (err, files) => {
     assert.equal(err, null)
-    files.forEach(file => {
-      // Use connect method to connect to the server
-      MongoClient.connect(url, function (err, db) {
-        assert.equal(null, err)
 
-        console.log('开始导入文件：' + file)
+    // 挨个同步导入文件
+    files.reduce((seq, file) => {
+      return seq.then(() =>
+        new Promise((resolve, reject) => {
+          MongoClient.connect(url, function (err, db) {
+            assert.equal(null, err)
+            console.log('开始导入文件：' + file)
 
-        // Get document, or throw exception on error
-        var doc = yaml.safeLoad(fs.readFileSync(bsdFolder + file, 'utf8'))
-
-        var collectionName = file.replace(/\.[^/.]+$/, '')
-        db.collection(collectionName).insertMany(doc
-          , function (err, result) {
-            assert.equal(err, null)
-            db.close()
+            let doc = yaml.safeLoad(fs.readFileSync(bsdFolder + file, 'utf8'))
+            let collectionName = file.replace(/\.[^/.]+$/, '')
+            db.collection(collectionName).insertMany(doc
+              , function (err, result) {
+                assert.equal(err, null)
+                db.close()
+                console.log('文件' + file + '导入完成')
+                resolve()
+              })
           })
-      })
-    })
+        })
+      )
+    }, Promise.resolve())
   })
 }
 
 var importFsd = function () {
-  // Connection URL
-  var url = 'mongodb://localhost:27017/import_fsd'
-
-  var yamlFiles = []
-  var files = fs.readdirSync(fsdFolder)
-  files.forEach(function (file) {
-    if (file === 'landmarks') {
-      var landmarkFiles = fs.readdirSync(fsdFolder + file)
-      landmarkFiles.forEach(file => {
-        yamlFiles.push('landmarks/' + file)
-      })
-    } else if (file === 'universe') {
-    } else {
-      yamlFiles.push(file)
-    }
-  })
-
-  yamlFiles.forEach(function (file) {
-    // Get document, or throw exception on error
-    var doc = yaml.safeLoad(fs.readFileSync(fsdFolder + file, 'utf8'))
-
-    var collectionName = file.replace(/\.[^/.]+$/, '')
-
-    // Use connect method to connect to the server
-    MongoClient.connect(url, function (err, db) {
-      assert.equal(null, err)
-
-      console.log('开始导入文件：' + file)
-
-      var insertArr = doc
-      if (!Array.isArray(doc)) {
-        insertArr = []
-        for (const prop in doc) {
-          if (doc.hasOwnProperty(prop)) {
-            doc[prop].id = prop
-            insertArr.push(doc[prop])
-          }
-        }
-      }
-
-      db.collection(collectionName).insertMany(insertArr
-        , function (err, result) {
-          assert.equal(err, null)
-          db.close()
+  let fsdFolder = basePath + 'fsd/'
+  let url = 'mongodb://localhost:27017/import_fsd'
+  fs.readdir(fsdFolder, (err, files) => {
+    assert.equal(err, null)
+    let yamlFiles = []
+    files.forEach(function (file) {
+      if (file === 'landmarks') {
+        let landmarkFiles = fs.readdirSync(fsdFolder + file)
+        landmarkFiles.forEach(file => {
+          yamlFiles.push('landmarks/' + file)
         })
+      } else if (file === 'universe') {
+      } else {
+        yamlFiles.push(file)
+      }
     })
+
+    yamlFiles.reduce((seq, file) => {
+      return seq.then(() =>
+        new Promise((resolve, reject) => {
+          let doc = yaml.safeLoad(fs.readFileSync(fsdFolder + file, 'utf8'))
+          let collectionName = file.replace(/\.[^/.]+$/, '')
+
+          MongoClient.connect(url, function (err, db) {
+            assert.equal(null, err)
+            console.log('开始导入文件：' + file)
+
+            let insertArr = doc
+            if (!Array.isArray(doc)) {
+              insertArr = []
+              for (const prop in doc) {
+                if (doc.hasOwnProperty(prop)) {
+                  doc[prop].id = prop
+                  insertArr.push(doc[prop])
+                }
+              }
+            }
+
+            db.collection(collectionName).insertMany(insertArr
+              , function (err, result) {
+                assert.equal(err, null)
+                db.close()
+                console.log('文件' + file + '导入完成')
+                resolve()
+              })
+          })
+        })
+      )
+    }, Promise.resolve())
   })
 }
 
 var importUniverse = function () {
-  // Connection URL
-  var url = 'mongodb://localhost:27017/import_fsd'
+  let fsdFolder = basePath + 'fsd/'
+  let url = 'mongodb://localhost:27017/import_fsd'
 
-  var universePath = fsdFolder + 'universe/'
-  var universeTypes = fs.readdirSync(universePath)
-  var doc = []
+  let universePath = fsdFolder + 'universe/'
+  let universeTypes = fs.readdirSync(universePath)
+  let doc = []
   doc.push({
     name: 'universe',
     parent: null,
@@ -106,12 +113,12 @@ var importUniverse = function () {
       data: null,
       type: 'universe_type'
     })
-    var regions = fs.readdirSync(universeTypePath)
+    let regions = fs.readdirSync(universeTypePath)
     regions.forEach(function (region) {
       let regionPath = universeTypePath + region + '/'
-      var constellations = fs.readdirSync(regionPath)
-      var regionDataFile = 'region.staticdata'
-      var regionData = yaml.safeLoad(fs.readFileSync(regionPath + regionDataFile, 'utf8'))
+      let constellations = fs.readdirSync(regionPath)
+      let regionDataFile = 'region.staticdata'
+      let regionData = yaml.safeLoad(fs.readFileSync(regionPath + regionDataFile, 'utf8'))
       doc.push({
         name: region,
         parent: universeType,
@@ -121,9 +128,9 @@ var importUniverse = function () {
       constellations.splice(constellations.indexOf(regionDataFile), 1)
       constellations.forEach(function (constellation) {
         let constellationPath = regionPath + constellation + '/'
-        var solarsystems = fs.readdirSync(constellationPath)
-        var constellationDataFile = 'constellation.staticdata'
-        var constellationData = yaml.safeLoad(fs.readFileSync(constellationPath + constellationDataFile, 'utf8'))
+        let solarsystems = fs.readdirSync(constellationPath)
+        let constellationDataFile = 'constellation.staticdata'
+        let constellationData = yaml.safeLoad(fs.readFileSync(constellationPath + constellationDataFile, 'utf8'))
         doc.push({
           name: constellation,
           parent: region,
@@ -133,8 +140,8 @@ var importUniverse = function () {
         solarsystems.splice(solarsystems.indexOf(constellationDataFile), 1)
         solarsystems.forEach(function (solarsystem) {
           let solarsystemPath = constellationPath + solarsystem + '/'
-          var solarsystemDataFile = 'solarsystem.staticdata'
-          var solarsystemData = yaml.safeLoad(fs.readFileSync(solarsystemPath + solarsystemDataFile, 'utf8'))
+          let solarsystemDataFile = 'solarsystem.staticdata'
+          let solarsystemData = yaml.safeLoad(fs.readFileSync(solarsystemPath + solarsystemDataFile, 'utf8'))
           doc.push({
             name: solarsystem,
             parent: constellation,
@@ -160,6 +167,41 @@ var importUniverse = function () {
   })
 }
 
-// importBsd()
-// importFsd()
-importUniverse()
+var clearDb = function (dbName) {
+  let server = new Server('localhost', 27017)
+  let db = new Db(dbName, server)
+  db.open((err, db) => {
+    assert.equal(err, null)
+    db.dropDatabase((err, result) => {
+      assert.equal(err, null)
+      if (result) {
+        console.log('成功清空' + dbName)
+      }
+      db.close()
+    })
+  })
+}
+
+var arg = process.argv[2]
+
+if (arg) {
+  switch (arg) {
+    case 'clearbsd':
+      clearDb('import')
+      break
+    case 'clearfsd':
+      clearDb('import_fsd')
+      break
+    case 'bsd':
+      importBsd()
+      break
+    case 'fsd':
+      importFsd()
+      break
+    case 'universe':
+      importUniverse()
+      break
+    default:
+      break
+  }
+}
