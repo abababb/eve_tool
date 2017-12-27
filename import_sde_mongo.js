@@ -93,7 +93,7 @@ var importUniverse = function () {
   var universeTypes = fs.readdirSync(universePath)
   var doc = []
   doc.push({
-    _id: 'universe',
+    name: 'universe',
     parent: null,
     type: 'universe',
     data: null
