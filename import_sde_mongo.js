@@ -4,38 +4,70 @@ var assert = require('assert')
 var MongoClient = require('mongodb').MongoClient
 var Db = require('mongodb').Db
 var Server = require('mongodb').Server
+var heapdump = require('heapdump')
 
 var basePath = '/tmp/sde/'
 
 var importBsd = function () {
   let url = 'mongodb://localhost:27017/import'
   let bsdFolder = basePath + 'bsd/'
+  heapdump.writeSnapshot((err, filename) => {
+    assert.equal(null, err)
+    console.log('dump written to', filename)
+  })
 
   // 读目录下的文件
   fs.readdir(bsdFolder, (err, files) => {
     assert.equal(err, null)
+    let importOneFile = (file) => (resolve, reject) => {
+      MongoClient.connect(url, function (err, db) {
+        assert.equal(null, err)
+        console.log('开始导入文件：' + file)
+
+        if (file === 'invNames.yaml' || file === 'invPositions.yaml') {
+          console.log(file)
+          heapdump.writeSnapshot((err, filename) => {
+            assert.equal(null, err)
+            console.log('dump written to', filename)
+          })
+        }
+        let doc = yaml.safeLoad(fs.readFileSync(bsdFolder + file, 'utf8'))
+        if (file === 'invNames.yaml' || file === 'invPositions.yaml') {
+          console.log(file)
+          heapdump.writeSnapshot((err, filename) => {
+            assert.equal(null, err)
+            console.log('dump written to', filename)
+          })
+        }
+        db.collection(file.replace(/\.[^/.]+$/, '')).insertMany(doc,
+          (err, result) => {
+            assert.equal(err, null)
+            db.close()
+            if (file === 'invNames.yaml' || file === 'invPositions.yaml') {
+              console.log(file)
+              heapdump.writeSnapshot((err, filename) => {
+                assert.equal(null, err)
+                console.log('dump written to', filename)
+              })
+            }
+            console.log('文件' + file + '导入完成')
+            resolve()
+          })
+      })
+    }
 
     // 挨个同步导入文件
-    files.reduce((seq, file) => {
-      return seq.then(() =>
-        new Promise((resolve, reject) => {
-          MongoClient.connect(url, function (err, db) {
+    files.reduce((seq, file) =>
+      seq.then(() => {
+        if (files.indexOf(file) === files.length - 1) {
+          console.log(file)
+          heapdump.writeSnapshot((err, filename) => {
             assert.equal(null, err)
-            console.log('开始导入文件：' + file)
-
-            let doc = yaml.safeLoad(fs.readFileSync(bsdFolder + file, 'utf8'))
-            let collectionName = file.replace(/\.[^/.]+$/, '')
-            db.collection(collectionName).insertMany(doc
-              , function (err, result) {
-                assert.equal(err, null)
-                db.close()
-                console.log('文件' + file + '导入完成')
-                resolve()
-              })
+            console.log('dump written to', filename)
           })
-        })
-      )
-    }, Promise.resolve())
+        }
+        return new Promise(importOneFile(file))
+      }), Promise.resolve())
   })
 }
 
