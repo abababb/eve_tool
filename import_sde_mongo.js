@@ -5,6 +5,8 @@ var MongoClient = require('mongodb').MongoClient
 var Db = require('mongodb').Db
 var Server = require('mongodb').Server
 var heapdump = require('heapdump')
+var streamToMongoDB = require('stream-to-mongo-db').streamToMongoDB
+var JSONStream = require('JSONStream')
 
 var basePath = '/tmp/sde/'
 
@@ -24,32 +26,11 @@ var importBsd = function () {
         assert.equal(null, err)
         console.log('开始导入文件：' + file)
 
-        if (file === 'invNames.yaml' || file === 'invPositions.yaml') {
-          console.log(file)
-          heapdump.writeSnapshot((err, filename) => {
-            assert.equal(null, err)
-            console.log('dump written to', filename)
-          })
-        }
         let doc = yaml.safeLoad(fs.readFileSync(bsdFolder + file, 'utf8'))
-        if (file === 'invNames.yaml' || file === 'invPositions.yaml') {
-          console.log(file)
-          heapdump.writeSnapshot((err, filename) => {
-            assert.equal(null, err)
-            console.log('dump written to', filename)
-          })
-        }
         db.collection(file.replace(/\.[^/.]+$/, '')).insertMany(doc,
           (err, result) => {
             assert.equal(err, null)
             db.close()
-            if (file === 'invNames.yaml' || file === 'invPositions.yaml') {
-              console.log(file)
-              heapdump.writeSnapshot((err, filename) => {
-                assert.equal(null, err)
-                console.log('dump written to', filename)
-              })
-            }
             console.log('文件' + file + '导入完成')
             resolve()
           })
@@ -59,16 +40,33 @@ var importBsd = function () {
     // 挨个同步导入文件
     files.reduce((seq, file) =>
       seq.then(() => {
-        if (files.indexOf(file) === files.length - 1) {
-          console.log(file)
-          heapdump.writeSnapshot((err, filename) => {
-            assert.equal(null, err)
-            console.log('dump written to', filename)
-          })
-        }
         return new Promise(importOneFile(file))
       }), Promise.resolve())
   })
+}
+
+var yamlToJson = () => {
+  let file = 'invNames.yaml'
+  let bsdFolder = basePath + 'bsd/'
+  let doc = yaml.safeLoad(fs.readFileSync(bsdFolder + file, 'utf8'))
+  let jsonFileName = bsdFolder + file.replace(/\.[^/.]+$/, '.json')
+  fs.writeFile(jsonFileName, JSON.stringify(doc), 'utf8', () => console.log('done'))
+}
+
+var importStream = () => {
+  let url = 'mongodb://localhost:27017/import'
+  let file = 'invNames.json'
+  let collectionName = file.replace(/\.[^/.]+$/, '')
+  let outputDBConfig = {dbURL: url, collection: collectionName}
+  let bsdFolder = basePath + 'bsd/'
+
+  let writableStream = streamToMongoDB(outputDBConfig)
+
+  let stream = fs.createReadStream(bsdFolder + file)
+    .pipe(JSONStream.parse('*'))
+    .pipe(writableStream)
+
+  stream.on('finish', () => console.log('done'))
 }
 
 var importFsd = function () {
@@ -225,7 +223,8 @@ if (arg) {
       clearDb('import_fsd')
       break
     case 'bsd':
-      importBsd()
+      importStream()
+      // importBsd()
       break
     case 'fsd':
       importFsd()
