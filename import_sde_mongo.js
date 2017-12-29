@@ -1,124 +1,53 @@
 var yaml = require('js-yaml')
 var fs = require('fs')
 var assert = require('assert')
-var MongoClient = require('mongodb').MongoClient
-var Db = require('mongodb').Db
-var Server = require('mongodb').Server
-var heapdump = require('heapdump')
-var streamToMongoDB = require('stream-to-mongo-db').streamToMongoDB
 var JSONStream = require('JSONStream')
+var es = require('event-stream')
+var { MongoClient, Server, Db } = require('mongodb')
+// var heapdump = require('heapdump')
 
 var basePath = '/tmp/sde/'
 
-var importBsd = function () {
-  let url = 'mongodb://localhost:27017/import'
-  let bsdFolder = basePath + 'bsd/'
-  heapdump.writeSnapshot((err, filename) => {
-    assert.equal(null, err)
-    console.log('dump written to', filename)
-  })
+var importYaml = (folder, dbName) => {
+  let url = 'mongodb://localhost:27017/' + dbName
 
   // 读目录下的文件
-  fs.readdir(bsdFolder, (err, files) => {
+  fs.readdir(folder, (err, files) => {
     assert.equal(err, null)
-    let importOneFile = (file) => (resolve, reject) => {
-      MongoClient.connect(url, function (err, db) {
-        assert.equal(null, err)
-        console.log('开始导入文件：' + file)
 
-        let doc = yaml.safeLoad(fs.readFileSync(bsdFolder + file, 'utf8'))
-        db.collection(file.replace(/\.[^/.]+$/, '')).insertMany(doc,
-          (err, result) => {
-            assert.equal(err, null)
+    // 转化并导入一个文件
+    let importOneFile = (yamlFile) => (resolve, reject) => {
+      let doc = yaml.safeLoad(fs.readFileSync(folder + yamlFile, 'utf8'))
+      let jsonFile = yamlFile.replace(/\.[^/.]+$/, '.json')
+      // 转化成.json文件
+      fs.writeFile(folder + jsonFile, JSON.stringify(doc), 'utf8', () => {
+        // 读json导入mongo
+        MongoClient.connect(url, function (err, db) {
+          assert.equal(null, err)
+          console.log('开始导入文件：' + yamlFile)
+          let collection = yamlFile.replace(/\.[^/.]+$/, '')
+          let stream = fs.createReadStream(folder + jsonFile)
+            .pipe(JSONStream.parse('*'))
+            .pipe(es.map((doc, next) => {
+              db.collection(collection).insertOne(doc, next)
+            }))
+          stream.on('end', () => {
+            console.log('成功导入' + collection)
             db.close()
-            console.log('文件' + file + '导入完成')
             resolve()
           })
+        })
       })
     }
 
-    // 挨个同步导入文件
-    files.reduce((seq, file) =>
-      seq.then(() => {
-        return new Promise(importOneFile(file))
-      }), Promise.resolve())
-  })
-}
-
-var yamlToJson = () => {
-  let file = 'invNames.yaml'
-  let bsdFolder = basePath + 'bsd/'
-  let doc = yaml.safeLoad(fs.readFileSync(bsdFolder + file, 'utf8'))
-  let jsonFileName = bsdFolder + file.replace(/\.[^/.]+$/, '.json')
-  fs.writeFile(jsonFileName, JSON.stringify(doc), 'utf8', () => console.log('done'))
-}
-
-var importStream = () => {
-  let url = 'mongodb://localhost:27017/import'
-  let file = 'invNames.json'
-  let collectionName = file.replace(/\.[^/.]+$/, '')
-  let outputDBConfig = {dbURL: url, collection: collectionName}
-  let bsdFolder = basePath + 'bsd/'
-
-  let writableStream = streamToMongoDB(outputDBConfig)
-
-  let stream = fs.createReadStream(bsdFolder + file)
-    .pipe(JSONStream.parse('*'))
-    .pipe(writableStream)
-
-  stream.on('finish', () => console.log('done'))
-}
-
-var importFsd = function () {
-  let fsdFolder = basePath + 'fsd/'
-  let url = 'mongodb://localhost:27017/import_fsd'
-  fs.readdir(fsdFolder, (err, files) => {
-    assert.equal(err, null)
-    let yamlFiles = []
-    files.forEach(function (file) {
-      if (file === 'landmarks') {
-        let landmarkFiles = fs.readdirSync(fsdFolder + file)
-        landmarkFiles.forEach(file => {
-          yamlFiles.push('landmarks/' + file)
-        })
-      } else if (file === 'universe') {
-      } else {
-        yamlFiles.push(file)
-      }
-    })
-
-    yamlFiles.reduce((seq, file) => {
-      return seq.then(() =>
-        new Promise((resolve, reject) => {
-          let doc = yaml.safeLoad(fs.readFileSync(fsdFolder + file, 'utf8'))
-          let collectionName = file.replace(/\.[^/.]+$/, '')
-
-          MongoClient.connect(url, function (err, db) {
-            assert.equal(null, err)
-            console.log('开始导入文件：' + file)
-
-            let insertArr = doc
-            if (!Array.isArray(doc)) {
-              insertArr = []
-              for (const prop in doc) {
-                if (doc.hasOwnProperty(prop)) {
-                  doc[prop].id = prop
-                  insertArr.push(doc[prop])
-                }
-              }
-            }
-
-            db.collection(collectionName).insertMany(insertArr
-              , function (err, result) {
-                assert.equal(err, null)
-                db.close()
-                console.log('文件' + file + '导入完成')
-                resolve()
-              })
-          })
-        })
-      )
-    }, Promise.resolve())
+    // 挨个同步处理
+    files
+      .filter((file) => file.substr(-5) === '.yaml')
+      .reduce((seq, file) =>
+        seq.then(() => {
+          // heapdump.writeSnapshot('/Users/xjz/Downloads/heapdump/' + file + '.heapsnapshot')
+          return new Promise(importOneFile(file))
+        }), Promise.resolve())
   })
 }
 
@@ -223,16 +152,16 @@ if (arg) {
       clearDb('import_fsd')
       break
     case 'bsd':
-      importStream()
-      // importBsd()
+      importYaml(basePath + 'bsd/', 'import')
       break
     case 'fsd':
-      importFsd()
+      importYaml(basePath + 'fsd/', 'import_fsd')
       break
     case 'universe':
       importUniverse()
       break
     default:
+      console.log('可用命令: clearbsd, clearfsd, bsd, fsd, universe')
       break
   }
 }
