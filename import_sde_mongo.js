@@ -8,35 +8,59 @@ var { MongoClient, Server, Db } = require('mongodb')
 
 var basePath = '/tmp/sde/'
 
-var importYaml = (folder, dbName) => {
+var importJson = (dbName) => {
+  let folder = basePath + dbName + '/'
   let url = 'mongodb://localhost:27017/' + dbName
 
   // 读目录下的文件
   fs.readdir(folder, (err, files) => {
     assert.equal(err, null)
 
-    // 转化并导入一个文件
+    // 导入一个文件
+    let importOneFile = (jsonFile) => (resolve, reject) => {
+      // 读json导入mongo
+      MongoClient.connect(url, function (err, db) {
+        assert.equal(null, err)
+        console.log('开始导入文件：' + jsonFile)
+        let collection = jsonFile.replace(/\.[^/.]+$/, '')
+        let stream = fs.createReadStream(folder + jsonFile)
+          .pipe(JSONStream.parse('*'))
+          .pipe(es.map((doc, next) => {
+            db.collection(collection).insertOne(doc, next)
+          }))
+        stream.on('end', () => {
+          console.log('成功导入' + collection)
+          db.close()
+          resolve()
+        })
+      })
+    }
+
+    // 挨个同步处理
+    files
+      .filter((file) => file.substr(-3) === '.js')
+      .reduce((seq, file) =>
+        seq.then(() => {
+          // heapdump.writeSnapshot('/Users/xjz/Downloads/heapdump/' + file + '.heapsnapshot')
+          return new Promise(importOneFile(file))
+        }), Promise.resolve())
+  })
+}
+
+var yamlToJson = (dbName) => {
+  let folder = basePath + dbName + '/'
+  // 读目录下的文件
+  fs.readdir(folder, (err, files) => {
+    assert.equal(err, null)
+
+    // 转化一个文件
     let importOneFile = (yamlFile) => (resolve, reject) => {
       let doc = yaml.safeLoad(fs.readFileSync(folder + yamlFile, 'utf8'))
-      let jsonFile = yamlFile.replace(/\.[^/.]+$/, '.json')
-      // 转化成.json文件
+      let jsonFile = yamlFile.replace(/\.[^/.]+$/, '.js')
+      // 转化成json文件
       fs.writeFile(folder + jsonFile, JSON.stringify(doc), 'utf8', () => {
-        // 读json导入mongo
-        MongoClient.connect(url, function (err, db) {
-          assert.equal(null, err)
-          console.log('开始导入文件：' + yamlFile)
-          let collection = yamlFile.replace(/\.[^/.]+$/, '')
-          let stream = fs.createReadStream(folder + jsonFile)
-            .pipe(JSONStream.parse('*'))
-            .pipe(es.map((doc, next) => {
-              db.collection(collection).insertOne(doc, next)
-            }))
-          stream.on('end', () => {
-            console.log('成功导入' + collection)
-            db.close()
-            resolve()
-          })
-        })
+        console.log('转化完成文件' + yamlFile)
+        resolve()
       })
     }
 
@@ -52,8 +76,9 @@ var importYaml = (folder, dbName) => {
 }
 
 var importUniverse = function () {
-  let fsdFolder = basePath + 'fsd/'
-  let url = 'mongodb://localhost:27017/import_fsd'
+  let dbName = 'fsd'
+  let fsdFolder = basePath + dbName + '/'
+  let url = 'mongodb://localhost:27017/' + dbName
 
   let universePath = fsdFolder + 'universe/'
   let universeTypes = fs.readdirSync(universePath)
@@ -141,27 +166,23 @@ var clearDb = function (dbName) {
   })
 }
 
-var arg = process.argv[2]
+var action = process.argv[2]
+var target = process.argv[3]
 
-if (arg) {
-  switch (arg) {
-    case 'clearbsd':
-      clearDb('import')
+if (action && target) {
+  switch (action) {
+    case 'import':
+      importJson(target)
       break
-    case 'clearfsd':
-      clearDb('import_fsd')
+    case 'clear':
+      clearDb(target)
       break
-    case 'bsd':
-      importYaml(basePath + 'bsd/', 'import')
-      break
-    case 'fsd':
-      importYaml(basePath + 'fsd/', 'import_fsd')
-      break
-    case 'universe':
-      importUniverse()
+    case 'transform':
+      yamlToJson(target)
       break
     default:
-      console.log('可用命令: clearbsd, clearfsd, bsd, fsd, universe')
       break
   }
+} else {
+  console.log('参数错误，示例: import bsd')
 }
