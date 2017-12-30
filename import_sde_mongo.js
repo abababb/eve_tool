@@ -77,12 +77,9 @@ var yamlToJson = (dbName) => {
   })
 }
 
-var importUniverse = function () {
-  let dbName = 'fsd'
-  let fsdFolder = basePath + dbName + '/'
-  let url = 'mongodb://localhost:27017/' + dbName
-
-  let universePath = fsdFolder + 'universe/'
+var transformUniverse = () => {
+  let folder = basePath + 'fsd/'
+  let universePath = folder + 'universe/'
   let universeTypes = fs.readdirSync(universePath)
   let doc = []
   doc.push({
@@ -138,18 +135,9 @@ var importUniverse = function () {
       })
     })
   })
-
-  // Use connect method to connect to the server
-  MongoClient.connect(url, function (err, db) {
-    assert.equal(null, err)
-
-    console.log('开始导入文件：universe')
-
-    db.collection('universe').insertMany(doc
-      , function (err, result) {
-        assert.equal(err, null)
-        db.close()
-      })
+  let jsonFile = 'universe.js'
+  fs.writeFile(folder + jsonFile, JSON.stringify(doc), 'utf8', () => {
+    console.log('转化完成文件' + folder + jsonFile)
   })
 }
 
@@ -174,17 +162,17 @@ var target = process.argv[3]
 if (action && target) {
   switch (action) {
     case 'import':
-      if (target === 'universe') {
-        importUniverse()
-      } else {
-        importJson(target)
-      }
+      importJson(target)
       break
     case 'clear':
       clearDb(target)
       break
     case 'transform':
-      yamlToJson(target)
+      if (target === 'universe') {
+        transformUniverse()
+      } else {
+        yamlToJson(target)
+      }
       break
     default:
       break

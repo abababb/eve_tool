@@ -7,7 +7,6 @@ var typeIDs = (function () {
   typeIDs.mongoUrl = config.mongoUrl + '/fsd'
 
   typeIDs.getIDVolumes = function (callback, typeIDList) {
-    console.log(this.mongoUrl)
     MongoClient.connect(this.mongoUrl, function (err, db) {
       assert.equal(null, err)
       var typeInfo = db.collection('typeIDs')
