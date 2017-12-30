@@ -4,9 +4,10 @@ var config = require('../config.js')
 
 var typeIDs = (function () {
   function typeIDs () {}
-  typeIDs.mongoUrl = config.mongoUrl + '/import_fsd'
+  typeIDs.mongoUrl = config.mongoUrl + '/fsd'
 
   typeIDs.getIDVolumes = function (callback, typeIDList) {
+    console.log(this.mongoUrl)
     MongoClient.connect(this.mongoUrl, function (err, db) {
       assert.equal(null, err)
       var typeInfo = db.collection('typeIDs')

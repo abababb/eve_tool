@@ -24,9 +24,11 @@ var importJson = (dbName) => {
         console.log('开始导入文件：' + jsonFile)
         let collection = jsonFile.replace(/\.[^/.]+$/, '')
         let stream = fs.createReadStream(folder + jsonFile)
-          .pipe(JSONStream.parse('*'))
+          .pipe(JSONStream.parse('$*'))
           .pipe(es.map((doc, next) => {
-            db.collection(collection).insertOne(doc, next)
+            let row = doc.value
+            row.id = doc.key
+            db.collection(collection).insertOne(row, next)
           }))
         stream.on('end', () => {
           console.log('成功导入' + collection)
@@ -172,7 +174,11 @@ var target = process.argv[3]
 if (action && target) {
   switch (action) {
     case 'import':
-      importJson(target)
+      if (target === 'universe') {
+        importUniverse()
+      } else {
+        importJson(target)
+      }
       break
     case 'clear':
       clearDb(target)

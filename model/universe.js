@@ -5,7 +5,7 @@ var config = require('../config.js')
 var Universe = (function () {
   function Universe () {}
 
-  Universe.mongoUrl = config.mongoUrl + '/import_fsd'
+  Universe.mongoUrl = config.mongoUrl + '/fsd'
 
   Universe.getAllRegions = function (callback) {
     this.getCollection(function (collection, db) {

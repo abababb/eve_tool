@@ -5,7 +5,7 @@ var config = require('../config.js')
 var staStations = (function () {
   function staStations () {}
 
-  staStations.mongoUrl = config.mongoUrl + '/import'
+  staStations.mongoUrl = config.mongoUrl + '/bsd'
 
   staStations.getSecurityMap = function (callback) {
     // Connection URL
