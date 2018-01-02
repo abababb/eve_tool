@@ -77,6 +77,7 @@ var yamlToJson = (dbName) => {
   })
 }
 
+// todo: 待优化内存使用
 var transformUniverse = () => {
   let folder = basePath + 'fsd/'
   let universePath = folder + 'universe/'
