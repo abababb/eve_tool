@@ -38,13 +38,15 @@ var getRouteDetail = function (route, callback) {
     }
     Object.assign(route.to.solar_system, infos.pop())
 
-    marketRoute.getSecureRoute(fromID, toID).then(function (routeDetail) {
-      route.jumps = routeDetail.length
-      route.detail = routeDetail
-      route.total_volume = parseInt(route.amount * route.type.volume)
-      route.cost = parseInt(route.amount * route.from.lowest_sell_avg)
-      callback(route)
-    })
+    marketRoute.getSecureRoute(fromID, toID)
+      .then(res => res.json())
+      .then(function (routeDetail) {
+        route.jumps = routeDetail.length
+        route.detail = routeDetail
+        route.total_volume = parseInt(route.amount * route.type.volume)
+        route.cost = parseInt(route.amount * route.from.lowest_sell_avg)
+        callback(route)
+      })
   })
 }
 

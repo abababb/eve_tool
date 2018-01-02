@@ -16,9 +16,6 @@ var Route = (function () {
     }
 
     return Fetch(url, requestData)
-      .then(function (response) {
-        return response.json()
-      })
   }
 
   return Route

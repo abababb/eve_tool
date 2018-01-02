@@ -41,11 +41,13 @@ var getRouteDetail = function (route, callback) {
     }
     Object.assign(route.to.solar_system, infos.pop())
 
-    marketRoute.getSecureRoute(fromID, toID).then(function (routeDetail) {
-      route.jumps = routeDetail.length
-      route.detail = routeDetail
-      callback(route)
-    })
+    marketRoute.getSecureRoute(fromID, toID)
+      .then(res => res.json())
+      .then(function (routeDetail) {
+        route.jumps = routeDetail.length
+        route.detail = routeDetail
+        callback(route)
+      })
   })
 }
 

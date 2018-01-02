@@ -16,9 +16,6 @@ var FetchMarket = (function () {
     }
 
     return Fetch(url, requestData)
-      .then(function (response) {
-        return response.json()
-      })
   }
 
   FetchMarket.fetchByRegionPage = function (regionId, page) {
@@ -31,9 +28,6 @@ var FetchMarket = (function () {
     }
 
     return Fetch(url, requestData)
-      .then(function (response) {
-        return response.json()
-      })
   }
 
   return FetchMarket

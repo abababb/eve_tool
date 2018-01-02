@@ -20,41 +20,43 @@ client.select(config.redisDb)
 client.flushdb()
 
 var storeOneRegionPage = function (page, regionID, callback) {
-  fetchMarket.fetchByRegionPage(regionID, page).then(function (data) {
-    if (data.length) {
-      let promises = []
-      data.map(function (order) {
-        promises.push(
-          new Promise(function (resolve, reject) {
-            let type = order.type_id
-            let station = order.location_id
+  fetchMarket.fetchByRegionPage(regionID, page)
+    .then(res => res.json())
+    .then(function (data) {
+      if (data.length) {
+        let promises = []
+        data.map(function (order) {
+          promises.push(
+            new Promise(function (resolve, reject) {
+              let type = order.type_id
+              let station = order.location_id
 
-            let typeSetKey = 'type:' + type + ':stations'
-            client.saddAsync(typeSetKey, station).then(function (res) {
-              let stationSetKey = 'station:' + station + ':types'
-              client.saddAsync(stationSetKey, type).then(function (res) {
-                let stationTypeSetKey = 'station:' + station + ':type:' + type
-                client.saddAsync(stationTypeSetKey, JSON.stringify(order)).then(function (res) {
-                  resolve()
+              let typeSetKey = 'type:' + type + ':stations'
+              client.saddAsync(typeSetKey, station).then(function (res) {
+                let stationSetKey = 'station:' + station + ':types'
+                client.saddAsync(stationSetKey, type).then(function (res) {
+                  let stationTypeSetKey = 'station:' + station + ':type:' + type
+                  client.saddAsync(stationTypeSetKey, JSON.stringify(order)).then(function (res) {
+                    resolve()
+                  })
                 })
               })
             })
-          })
-        )
-      })
-      Promise.all(promises).then(function (res) {
-        console.log(regionID, page)
-        page++
-        storeOneRegionPage(page, regionID, callback)
-      })
-    } else {
-      callback()
-    }
-  }).catch(function (error) {
-    console.log(error)
-    console.log('网络错误，重新发起请求')
-    storeOneRegionPage(page, regionID, callback)
-  })
+          )
+        })
+        Promise.all(promises).then(function (res) {
+          console.log(regionID, page)
+          page++
+          storeOneRegionPage(page, regionID, callback)
+        })
+      } else {
+        callback()
+      }
+    }).catch(function (error) {
+      console.log(error)
+      console.log('网络错误，重新发起请求')
+      storeOneRegionPage(page, regionID, callback)
+    })
 }
 
 universe.getAllRegions(function (regions) {
