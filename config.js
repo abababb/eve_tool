@@ -45,7 +45,7 @@ var Config = (function () {
   Config.securityLimit = 0.5
 
   // 获取市场数据页数最大值
-  Config.cacheMarketPageLimit = 35
+  Config.cacheMarketPageLimit = 32
 
   return Config
 }())
