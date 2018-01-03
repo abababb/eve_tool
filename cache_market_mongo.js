@@ -31,29 +31,35 @@ let fetchOneRegionPage = (regionPage) => (resolve, reject) => {
                 db.collection(regionID).count({order_id: data.order_id}, (err, count) => {
                   try {
                     assert.equal(null, err)
+                    // 过滤重复订单号的订单
                     if (count === 0) {
                       db.collection(regionID).insertOne(data, next)
                     } else {
                       next()
                     }
                   } catch (err) {
+                    // 数据库错误
                     console.log(regionPageInfo, 'collection error', err)
                     next()
                   }
                 })
               }))
               .on('end', () => {
+                // 正常获取插入数据完毕
                 if (!orderCount) {
+                  // 该页订单数为0时置为最后页
                   regionEndPage[regionID] = page
                 }
                 console.log(regionPageInfo)
                 callback()
               })
               .on('error', (err) => {
+                // 插入过程stream错误
                 console.log(regionPageInfo, 'stream error', err)
                 fetchStream(callback)
               })
           }).catch(err => {
+            // 接口网络错误
             console.log(regionPageInfo, 'fetch error', err)
             fetchStream(callback)
           })
@@ -80,6 +86,7 @@ let dropMarket = () => (resolve, reject) => {
 
 universe.getAllRegions(function (regions) {
   let regionPages = []
+  // 获取所有星域ID和页数数组，初始化最后一页
   regions.map(region => {
     regionEndPage[region.data.regionID] = config.cacheMarketPageLimit
     let pages = Array.from(Array(config.cacheMarketPageLimit).keys())
@@ -88,10 +95,12 @@ universe.getAllRegions(function (regions) {
     })
   })
   regionPages.reduce((seq, regionPage) => {
+    // 开始逐页拉取api数据插入数据库
     return seq.then(() => {
       return new Promise(fetchOneRegionPage(regionPage))
     })
   }, Promise.resolve().then(() => {
+    // 第一步清空原数据库
     return new Promise(dropMarket())
   }))
 })
