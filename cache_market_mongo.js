@@ -8,21 +8,26 @@ var universe = require('./model/universe.js')
 var config = require('./config.js')
 
 let url = 'mongodb://localhost:27017/market'
+let regionEndPage = {}
 
 let fetchOneRegionPage = (regionPage) => (resolve, reject) => {
-  let page = regionPage.page + 1
-  let regionID = regionPage.region.data.regionID.toString()
+  let page = regionPage.page
+  let regionID = regionPage.region
   let regionPageInfo = regionID + ' ' + page
 
   MongoClient.connect(url, function (err, db) {
     assert.equal(null, err)
     let fetchStream = (callback) => {
-      try {
+      if (page > regionEndPage[regionID]) {
+        callback()
+      } else {
         fetchMarket.fetchByRegionPage(regionID, page)
           .then(res => {
+            let orderCount = 0
             res.body
               .pipe(JSONStream.parse('*'))
               .pipe(es.map((data, next) => {
+                orderCount++
                 db.collection(regionID).count({order_id: data.order_id}, (err, count) => {
                   try {
                     assert.equal(null, err)
@@ -38,6 +43,9 @@ let fetchOneRegionPage = (regionPage) => (resolve, reject) => {
                 })
               }))
               .on('end', () => {
+                if (!orderCount) {
+                  regionEndPage[regionID] = page
+                }
                 console.log(regionPageInfo)
                 callback()
               })
@@ -49,9 +57,6 @@ let fetchOneRegionPage = (regionPage) => (resolve, reject) => {
             console.log(regionPageInfo, 'fetch error', err)
             fetchStream(callback)
           })
-      } catch (err) {
-        console.log(regionPageInfo, 'other error', err)
-        fetchStream(callback)
       }
     }
     fetchStream(() => {
@@ -76,9 +81,10 @@ let dropMarket = () => (resolve, reject) => {
 universe.getAllRegions(function (regions) {
   let regionPages = []
   regions.map(region => {
+    regionEndPage[region.data.regionID] = config.cacheMarketPageLimit
     let pages = Array.from(Array(config.cacheMarketPageLimit).keys())
     pages.map(page => {
-      regionPages.push({region: region, page: page})
+      regionPages.push({region: region.data.regionID.toString(), page: page + 1})
     })
   })
   regionPages.reduce((seq, regionPage) => {
