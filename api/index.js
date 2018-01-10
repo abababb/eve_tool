@@ -3,6 +3,7 @@
  */
 var TypeRoutes = require('./TypeRoutesAPI.js')
 var StationRoutes = require('./StationRoutesAPI.js')
+var StationType = require('./StationTypeAPI.js')
 
 var express = require('express')
 var cors = require('cors')
@@ -32,6 +33,13 @@ app.get('/station/multi/routes/:stationID(\\d+)', (req, res) => {
   let stationID = req.params.stationID
   StationRoutes.getMultiStationRoute(stationID)
   res.type('html').send({msg: '见cli'})
+})
+
+app.get('/station/type/min/sell/:stationID', (req, res) => {
+  let stationID = req.params.stationID
+  StationType.getMinSell(stationID, (data) => {
+    res.type('html').send(data)
+  })
 })
 
 app.listen(8989)
