@@ -55,6 +55,10 @@ let fetchOneRegionPage = (regionPage) => (resolve, reject) => {
           })
         }
       })
+      .catch(err => {
+        console.log(err)
+        resolve()
+      })
   }
 }
 
