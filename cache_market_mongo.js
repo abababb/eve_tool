@@ -1,5 +1,3 @@
-var JSONStream = require('JSONStream')
-var es = require('event-stream')
 var assert = require('assert')
 var { MongoClient } = require('mongodb')
 
@@ -15,61 +13,29 @@ let fetchOneRegionPage = (regionPage) => (resolve, reject) => {
   let regionID = regionPage.region
   let regionPageInfo = regionID + ' ' + page
 
-  MongoClient.connect(url, function (err, db) {
-    assert.equal(null, err)
-    let fetchStream = (callback) => {
-      if (page > regionEndPage[regionID]) {
-        callback()
-      } else {
-        fetchMarket.fetchByRegionPage(regionID, page)
-          .then(res => {
-            let orderCount = 0
-            res.body
-              .pipe(JSONStream.parse('*'))
-              .pipe(es.map((data, next) => {
-                orderCount++
-                db.collection(regionID).count({order_id: data.order_id}, (err, count) => {
-                  try {
-                    assert.equal(null, err)
-                    // 过滤重复订单号的订单
-                    if (count === 0) {
-                      db.collection(regionID).insertOne(data, next)
-                    } else {
-                      next()
-                    }
-                  } catch (err) {
-                    // 数据库错误
-                    console.log(regionPageInfo, 'collection error', err)
-                    next()
-                  }
-                })
-              }))
-              .on('end', () => {
-                // 正常获取插入数据完毕
-                if (!orderCount) {
-                  // 该页订单数为0时置为最后页
-                  regionEndPage[regionID] = page
-                }
-                console.log(regionPageInfo)
-                callback()
-              })
-              .on('error', (err) => {
-                // 插入过程stream错误
-                console.log(regionPageInfo, 'stream error', err)
-                fetchStream(callback)
-              })
-          }).catch(err => {
-            // 接口网络错误
-            console.log(regionPageInfo, 'fetch error', err)
-            fetchStream(callback)
+  if (page > regionEndPage[regionID]) {
+    resolve()
+  } else {
+    fetchMarket.fetchByRegionPage(regionID, page)
+      .then(res => res.json())
+      .then(res => {
+        let orderCount = res.length
+        if (!orderCount) {
+          // 该页订单数为0时置为最后页
+          regionEndPage[regionID] = page
+          resolve()
+        } else {
+          MongoClient.connect(url, function (err, db) {
+            assert.equal(null, err)
+            db.collection(regionID).insertMany(res, () => {
+              console.log(regionPageInfo)
+              db.close()
+              resolve()
+            })
           })
-      }
-    }
-    fetchStream(() => {
-      db.close()
-      resolve()
-    })
-  })
+        }
+      })
+  }
 }
 
 let dropMarket = () => (resolve, reject) => {
