@@ -30,6 +30,18 @@ var FetchMarket = (function () {
     return Fetch(url, requestData)
   }
 
+  FetchMarket.fetchPrices = function () {
+    var api = '/markets/prices?datasource=tranquility'
+
+    var url = this.host + api
+
+    var requestData = {
+      method: 'GET'
+    }
+
+    return Fetch(url, requestData)
+  }
+
   return FetchMarket
 }())
 

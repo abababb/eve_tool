@@ -7,10 +7,28 @@ var staStations = (function () {
 
   staStations.mongoUrl = config.mongoUrl + '/bsd'
 
-  staStations.getSecurityMap = function (callback) {
-    // Connection URL
+  staStations.getRegionByStationID = (stationID, callback) => {
+    MongoClient.connect(staStations.mongoUrl, function (err, db) {
+      assert.equal(null, err)
+      var station = db.collection('staStations')
+      var query = {
+        'stationID': parseInt(stationID)
+      }
+      var fields = {
+        'regionID': true
+      }
+      station.findOne(query, fields, function (err, results) {
+        assert.equal(null, err)
+        db.close()
+        if (results) {
+          callback(results.regionID.toString())
+        }
+      })
+    })
+  }
 
-    MongoClient.connect(this.mongoUrl, function (err, db) {
+  staStations.getSecurityMap = function (callback) {
+    MongoClient.connect(staStations.mongoUrl, function (err, db) {
       assert.equal(null, err)
       var station = db.collection('staStations')
       var query = {

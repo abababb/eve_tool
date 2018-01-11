@@ -3,7 +3,7 @@ var { MongoClient } = require('mongodb')
 var redis = require('redis')
 var bluebird = require('bluebird')
 
-var fetchMarket = require('./fetch/listOrdersInRegion.js')
+var fetchMarket = require('./fetch/FetchMarket.js')
 var universe = require('./model/universe.js')
 var config = require('./config.js')
 

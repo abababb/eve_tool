@@ -7,14 +7,12 @@ var Market = (function () {
 
   Market.mongoUrl = config.mongoUrl + '/market'
 
-  Market.getStationTypeMinSell = function (stationID, callback) {
-    let regionID = '10000002'
+  Market.getStationTypeMinSell = function (regionID, stationID, callback) {
     this.getCollection(regionID, function (collection, db) {
-      // todo
       let aggregate = [
         {
           $match: {
-            location_id: stationID,
+            location_id: parseInt(stationID),
             is_buy_order: false
           }
         },
