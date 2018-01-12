@@ -20,9 +20,11 @@ var staStations = (function () {
       station.findOne(query, fields, function (err, results) {
         assert.equal(null, err)
         db.close()
+        let regionID = ''
         if (results) {
-          callback(results.regionID.toString())
+          regionID = results.regionID.toString()
         }
+        callback(regionID)
       })
     })
   }
