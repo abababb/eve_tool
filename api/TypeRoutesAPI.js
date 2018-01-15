@@ -11,43 +11,24 @@ bluebird.promisifyAll(redis.RedisClient.prototype)
 bluebird.promisifyAll(redis.Multi.prototype)
 
 var getRouteDetail = function (route, callback) {
-  var promises = []
-  promises.push(
-    new Promise(function (resolve, reject) {
-      universeModel.getSolarSystemInfo(function (info) {
-        resolve(info)
-      }, route.to.solar_system)
-    })
-  )
-  promises.push(
-    new Promise(function (resolve, reject) {
-      universeModel.getSolarSystemInfo(function (info) {
-        resolve(info)
-      }, route.from.solar_system)
-    })
-  )
-  Promise.all(promises).then(function (infos) {
-    let fromID = route.from.solar_system
-    route.from.solar_system = {
-      id: fromID
-    }
-    Object.assign(route.from.solar_system, infos.pop())
-    let toID = route.to.solar_system
-    route.to.solar_system = {
-      id: toID
-    }
-    Object.assign(route.to.solar_system, infos.pop())
+  universeModel.getSolarSystemInfo(toInfo => {
+    universeModel.getSolarSystemInfo(fromInfo => {
+      route.to.solar_system = Object.assign({}, {id: route.to.solar_system})
+      route.to.solar_system = Object.assign(route.to.solar_system, toInfo)
+      route.from.solar_system = Object.assign({}, {id: route.from.solar_system})
+      route.from.solar_system = Object.assign(route.from.solar_system, fromInfo)
 
-    marketRoute.getSecureRoute(fromID, toID)
-      .then(res => res.json())
-      .then(function (routeDetail) {
-        route.jumps = routeDetail.length
-        route.detail = routeDetail
-        route.total_volume = parseInt(route.amount * route.type.volume)
-        route.cost = parseInt(route.amount * route.from.lowest_sell_avg)
-        callback(route)
-      })
-  })
+      marketRoute.getSecureRoute(route.from.solar_system.id, route.to.solar_system.id)
+        .then(res => res.json())
+        .then(function (routeDetail) {
+          route.jumps = routeDetail.length
+          route.detail = routeDetail
+          route.total_volume = parseInt(route.amount * route.type.volume)
+          route.cost = parseInt(route.amount * route.from.lowest_sell_avg)
+          callback(route)
+        })
+    }, route.from.solar_system)
+  }, route.to.solar_system)
 }
 
 var TypeRoutes = (function () {
