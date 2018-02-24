@@ -1,3 +1,6 @@
+var fetch = require('node-fetch')
+var btoa = require('btoa')
+
 let clientID = '9b6a5a59253e4f09a65094a00da88465'
 let secretKey = 'tugEWMlBINyQCw29vLa3OL0RjSXLDe3z2ccPl5ic'
 
@@ -20,25 +23,86 @@ function getCode () {
   let url = authUrl + '?' + query
   return url
 }
-console.log(getCode())
+// console.log(getCode())
 
 let tokenUrl = 'https://login.eveonline.com/oauth/token'
-let code = 'Qhciw2o-wgq-h8dnt5J21AgsZtqJqwA8eTP7ZCR5LXj0xJWWp7HopxahjMcAKefb0'
+let code = 'nPYo01_F32Wlq7X8S-E5_nUHy3BbqL0bVsiHvMtiU2nfmrFPR7b3_tmdBDdSHwID0'
 
-// let basicHeader = btoa(clientID + ':' + secretKey)
-// console.log(basicHeader)
-let basicHeader = 'OWI2YTVhNTkyNTNlNGYwOWE2NTA5NGEwMGRhODg0NjU6dHVnRVdNbEJJTnlRQ3cyOXZMYTNPTDBSalNYTERlM3oyY2NQbDVpYw=='
-let headers = new Headers({
-  'Content-Type': 'application/x-www-form-urlencoded',
-  'Host': 'login.eveonline.com'
-})
-headers.append('Authorization', 'Basic ' + basicHeader)
-console.log(headers)
+let basicHeader = btoa(clientID + ':' + secretKey)
 
-fetch(tokenUrl, {
-  body: 'grant_type=authorization_code&code=' + code,
-  method: 'POST',
-  mode: 'no-cors',
-  headers: headers
-}).then(res => res.json())
-  .then(res => console.log(res))
+function getAccessToken () {
+  fetch(tokenUrl, {
+    body: 'grant_type=authorization_code&code=' + code,
+    method: 'POST',
+    mode: 'no-cors',
+    headers: {
+      'Authorization': 'Basic ' + basicHeader,
+      'Content-Type': 'application/x-www-form-urlencoded'
+    }
+  })
+    .then(res => res.json())
+    .then(res => console.log(res))
+}
+
+function refreshToken () {
+  let refreshToken = 'FBHxYv1YG6FvdDn6zthGqTifjQdmF3hBs2Tlq7sOSQ2Ie3fHK1FMHWJMUXEayB5vtdAnw2jI8HUqfJ9v2-6kcqfax5zGRRZb9qzsv7q41Q5U-CSQKctMXJS5HRHIf08BEPufGsth0t28TI-nTvu_33RDzEBamcYv6qtT6_lmoW1P-JjQdrozvBJYK4lSi48gh7AlyvCnlEmMTV1tP9xzdHBoXVi3tCuTjSeJA8pfYojcUzBI212VEFuz-aj7Ca7wsEOZTS5He4STqpN5S83yMYMWHPq9ew4sBPA6YfzjnDet4JSXEi0b7t1s3EWCRvq4GeqnRqU0_csA84XU-L6PQWdduiCNRf-8gNVy9N7Ki5ILQ12RFwNP3PRzqsjsbyEy_0zGFlpQoTb-lifU2U5X8KHZ4htxC5mUuXeK4__YmY8NRqs3ol-fmfXkmWTgBFdTPlqJgQzEvIHAu1rYJlBQAvwsjtsadWDGvzOyCJH0ijGe0dITG_-Lbi-6XnFCULAZ9jxWEyutBVwJ9uZNb_xzVQFfdTvbvhcYvhbC6VSjcHJjK8CRNA5s5ltuWwmerCL4_oMGUPOPApaDXFgSn06-cx6pnKa56qKXj5cv36qmBw4VukoooLfqajFoJr_f_xUoUm-Jzz4f2YLUZdOh83GhGg2'
+
+  fetch(tokenUrl, {
+    body: 'grant_type=refresh_token&refresh_token=' + refreshToken,
+    method: 'POST',
+    mode: 'no-cors',
+    headers: {
+      'Authorization': 'Basic ' + basicHeader,
+      'Content-Type': 'application/x-www-form-urlencoded'
+    }
+  })
+    .then(res => res.json())
+    .then(res => console.log(res))
+}
+
+function getCharacterID () {
+  let accessToken = '9hczKBsx8zx0m-7Ly75ih_CO1bCsjvu9XMGEGrfQB4mEftgj4_nLlAoxswEqS7Gcwif_L_2dKJ29ywJge9gN2g2'
+  let url = 'https://login.eveonline.com/oauth/verify'
+  fetch(url, {
+    method: 'GET',
+    mode: 'no-cors',
+    headers: {
+      'Authorization': 'Bearer ' + accessToken
+    }
+  })
+    .then(res => res.json())
+    .then(res => console.log(res))
+}
+
+function getCharacterOrders () {
+  let charID = '2113264142'
+  let accessToken = '9hczKBsx8zx0m-7Ly75ih_CO1bCsjvu9XMGEGrfQB4mEftgj4_nLlAoxswEqS7Gcwif_L_2dKJ29ywJge9gN2g2'
+  let url = 'https://esi.tech.ccp.is/latest/characters/' + charID + '/orders/?datasource=tranquility'
+  fetch(url, {
+    method: 'GET',
+    mode: 'no-cors',
+    headers: {
+      'Authorization': 'Bearer ' + accessToken
+    }
+  })
+    .then(res => res.json())
+    .then(res => console.log(res))
+}
+
+function get1DQAMarket () {
+  let structureID = '1022734985679'
+  let page = 1
+  let accessToken = '9hczKBsx8zx0m-7Ly75ih_CO1bCsjvu9XMGEGrfQB4mEftgj4_nLlAoxswEqS7Gcwif_L_2dKJ29ywJge9gN2g2'
+  let url = 'https://esi.tech.ccp.is/latest/markets/structures/' + structureID + '/?datasource=tranquility&page=' + page
+  fetch(url, {
+    method: 'GET',
+    mode: 'no-cors',
+    headers: {
+      'Authorization': 'Bearer ' + accessToken
+    }
+  })
+    .then(res => res.json())
+    .then(res => console.log(res))
+}
+
+get1DQAMarket()
